@@ -1,0 +1,29 @@
+Done! Congratulations on your new bot. You will find it at t.me/Buniqlo_bot. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.
+
+Use this token to access the HTTP API:
+8321047692:AAF4EZMeFCIAJ5Sp-Qn9GSBhvW_GTigGE5w
+Keep your token secure and store it safely, it can be used by anyone to control your bot.
+
+For a description of the Bot API, see this page: https://core.telegram.org/bots/api
+
+https://t.me/+CUK7vOVE6iA1OGFk
+
+Buniqlo is the name of the channel
+https://api.telegram.org/bot8321047692:AAEJveuMgZNOl_8h_XpeS4OPJMsIAdWxG-Y/getUpdates
+
+You can use this token to access HTTP API:
+8321047692:AAEJveuMgZNOl_8h_XpeS4OPJMsIAdWxG-Y
+
+{"ok":true,"result":[{"update_id":238229276,
+"channel_post":{"message_id":3,"sender_chat":
+{"id":-1003548152092,"title":"Buniqlo","type":"channel"},
+"chat":
+{"id":-1003548152092,"title":"Buniqlo","type":"channel"},"date":1770061437,"text":"Hello"}}]}
+
+Done! Congratulations on your new bot. You will find it at t.me/impostor_autobot. You can now add a description, about section and profile picture for your bot, see /help for a list of commands. By the way, when you've finished creating your cool bot, ping our Bot Support if you want a better username for it. Just make sure the bot is fully operational before you do this.
+
+Use this token to access the HTTP API:
+7576577959:AAENPhIYjFWZY9S9kO5v4ICTCUftJFa7nvE
+Keep your token secure and store it safely, it can be used by anyone to control your bot.
+
+For a description of the Bot API, see this page: https://core.telegram.org/bots/api

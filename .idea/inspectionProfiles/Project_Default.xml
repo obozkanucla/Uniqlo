@@ -1,0 +1,39 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyPackageRequirementsInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="geopandas" />
+          <option value="shapely" />
+          <option value="pyproj" />
+          <option value="fiona" />
+          <option value="matplotlib" />
+          <option value="spacy" />
+          <option value="rtree" />
+          <option value="spacy-transformers" />
+          <option value="pgeocode" />
+          <option value="playwright" />
+          <option value="beautifulsoup4" />
+          <option value="lxml" />
+          <option value="pydantic" />
+          <option value="openai" />
+          <option value="python-dotenv" />
+          <option value="PyYAML" />
+          <option value="slack-sdk" />
+          <option value="h3" />
+          <option value="pandas" />
+          <option value="requests" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="PyStubPackagesAdvertiser" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredPackages">
+        <list>
+          <option value="pandas" />
+        </list>
+      </option>
+    </inspection_tool>
+    <inspection_tool class="SqlNoDataSourceInspection" enabled="false" level="WARNING" enabled_by_default="false" />
+  </profile>
+</component>
