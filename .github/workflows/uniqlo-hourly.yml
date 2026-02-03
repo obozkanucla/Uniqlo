@@ -1,0 +1,70 @@
+name: Uniqlo hourly scrape
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # every hour, on the hour
+  workflow_dispatch:
+
+permissions:
+  contents: write   # required for GitHub Releases
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ---------------------------------------------
+      # Checkout code
+      # ---------------------------------------------
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # ---------------------------------------------
+      # Python
+      # ---------------------------------------------
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ---------------------------------------------
+      # Restore SQLite DB from latest release (if any)
+      # ---------------------------------------------
+      - name: Restore SQLite database
+        run: |
+          mkdir -p db
+          gh release download uniqlo-db-latest \
+            --pattern uniqlo.sqlite \
+            --output db/uniqlo.sqlite \
+            --clobber || echo "No existing DB found — starting fresh"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---------------------------------------------
+      # Run scraper
+      # ---------------------------------------------
+      - name: Run Uniqlo scraper
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_ACTIONS: "true"
+        run: |
+          python src/uniqlo_scraper.py
+
+      # ---------------------------------------------
+      # Publish updated SQLite DB
+      # ---------------------------------------------
+      - name: Publish SQLite snapshot
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: uniqlo-db-latest
+          name: Uniqlo Sale SQLite (Latest)
+          files: db/uniqlo.sqlite
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
