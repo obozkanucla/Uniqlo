@@ -1,6 +1,6 @@
 import sqlite3
 from pathlib import Path
-from src.events.item_count import ItemCountIncrease
+from events.item_count import ItemCountIncrease
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = BASE_DIR / "db" / "uniqlo.sqlite"
