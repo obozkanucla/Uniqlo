@@ -7,7 +7,10 @@ from pathlib import Path
 import os
 import sqlite3
 from dotenv import load_dotenv
+import uuid
 
+SCRAPE_ID = uuid.uuid4().hex
+SCRAPED_AT = datetime.utcnow().isoformat()
 # --------------------------------------------------
 # ENV
 # --------------------------------------------------
@@ -31,10 +34,29 @@ CHAT_ID = int(CHAT_ID)
 # --------------------------------------------------
 # PATHS
 # --------------------------------------------------
-URL = "https://www.uniqlo.com/uk/en/feature/sale/men"
+CATALOGS = {
+    "men": {
+        "url": "https://www.uniqlo.com/uk/en/feature/sale/men",
+        "target_size": "M",
+    },
+    "women": {
+        "url": "https://www.uniqlo.com/uk/en/feature/sale/women",
+        "target_size": "S",
+    },
+}
+
+SIZE_COLUMN = {
+    "XS": "xs_available",
+    "S":  "s_available",
+    "M":  "m_available",
+    "L":  "l_available",
+    "XL": "xl_available",
+}
+
 OUT_FILE = Path("uniqlo_sale_daily.csv")
 
-DB_PATH = Path("db/uniqlo.sqlite")
+BASE_DIR = Path(__file__).resolve().parents[1]   # project root
+DB_PATH = BASE_DIR / "db" / "uniqlo.sqlite"
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 HEADERS = {
@@ -48,8 +70,11 @@ HEADERS = {
 conn = sqlite3.connect(DB_PATH)
 conn.execute("""
 CREATE TABLE IF NOT EXISTS uniqlo_sale_observations (
+    scrape_id TEXT NOT NULL,
     scraped_at TEXT NOT NULL,
+    catalog TEXT NOT NULL,      -- men / women / etc
     product_id TEXT NOT NULL,
+
     name TEXT,
     sale_price_num REAL,
     original_price_num REAL,
@@ -62,8 +87,7 @@ CREATE TABLE IF NOT EXISTS uniqlo_sale_observations (
     xl_available INTEGER,
 
     product_url TEXT,
-    PRIMARY KEY (scraped_at, product_id)
-)
+    PRIMARY KEY (scrape_id, catalog, product_id))
 """)
 conn.commit()
 
@@ -95,12 +119,12 @@ def send_telegram_message(text):
     r.raise_for_status()
 
 
-def format_message(df, top_n=5):
-    lines = ["UNIQLO UK — Deepest Discounts (Medium available)\n"]
+def format_message(df, catalog: str, size: str, top_n=5):
+    lines = [f"UNIQLO UK SALE — {catalog.upper()} — Size {size}\n"]
 
     for i, row in enumerate(df.head(top_n).itertuples(), start=1):
         lines.append(
-            f"{i}. {row.name}\n"
+            f"{i}. [{row.catalog.upper()}] {row.name}\n"
             f"   {row.discount_pct}% off "
             f"({row.original_price} → {row.sale_price})\n"
             f"   {row.product_url}\n"
@@ -111,84 +135,96 @@ def format_message(df, top_n=5):
 # --------------------------------------------------
 # SCRAPE
 # --------------------------------------------------
-print("Fetching page HTML…")
-r = requests.get(URL, headers=HEADERS, timeout=15)
-r.raise_for_status()
+all_results = []
 
-soup = BeautifulSoup(r.text, "html.parser")
-tiles = soup.select("div.product-tile")
-print(f"Product tiles found: {len(tiles)}")
+for catalog, cfg in CATALOGS.items():
+    url = cfg["url"]
 
-rows = []
+    print(f"\n=== Scraping catalog: {catalog} ===")
 
-for t in tiles:
-    try:
-        img = t.select_one("img[src*='imagesgoods']")
-        if not img:
+    r = requests.get(url, headers=HEADERS, timeout=15)
+    r.raise_for_status()
+
+    soup = BeautifulSoup(r.text, "html.parser")
+    tiles = soup.select("div.product-tile")
+    print(f"{catalog}: product tiles found: {len(tiles)}")
+
+    rows = []
+
+    for t in tiles:
+        try:
+            img = t.select_one("img[src*='imagesgoods']")
+            if not img:
+                continue
+
+            m = re.search(r"imagesgoods/(\d+)/", img["src"])
+            if not m:
+                continue
+
+            product_id = m.group(1)
+
+            name_el = t.select("div[data-testid='ITOTypography']")
+            name = name_el[1].get_text(strip=True) if len(name_el) >= 2 else None
+
+            sale_el = t.select_one(".ito-red500")
+            original_el = t.select_one(".strikethrough")
+            if not sale_el or not original_el:
+                continue
+
+            rows.append({
+                "catalog": catalog,
+                "product_id": product_id,
+                "name": name,
+                "sale_price": sale_el.get_text(strip=True),
+                "original_price": original_el.get_text(strip=True),
+                "product_url": f"https://www.uniqlo.com/uk/en/products/{product_id}"
+            })
+
+        except Exception:
             continue
 
-        m = re.search(r"imagesgoods/(\d+)/", img["src"])
-        if not m:
-            continue
+    df = pd.DataFrame(rows)
 
-        product_id = m.group(1)
-
-        name_el = t.select("div[data-testid='ITOTypography']")
-        name = name_el[1].get_text(strip=True) if len(name_el) >= 2 else None
-
-        sale_el = t.select_one(".ito-red500")
-        original_el = t.select_one(".strikethrough")
-        if not sale_el or not original_el:
-            continue
-
-        rows.append({
-            "product_id": product_id,
-            "name": name,
-            "sale_price": sale_el.get_text(strip=True),
-            "original_price": original_el.get_text(strip=True),
-            "product_url": f"https://www.uniqlo.com/uk/en/products/{product_id}"
-        })
-
-    except Exception:
+    if df.empty:
+        print(f"{catalog}: no products extracted")
         continue
 
-df = pd.DataFrame(rows)
+    df = df.drop_duplicates(subset=["product_id"]).reset_index(drop=True)
 
-if df.empty:
-    raise RuntimeError("❌ No sale products extracted")
+    # ---- prices
+    df["sale_price_num"] = df["sale_price"].str.replace(r"[^\d.]", "", regex=True).astype(float)
+    df["original_price_num"] = df["original_price"].str.replace(r"[^\d.]", "", regex=True).astype(float)
+    df["discount_pct"] = (
+        (df["original_price_num"] - df["sale_price_num"])
+        / df["original_price_num"]
+        * 100
+    ).round(2)
 
-# --------------------------------------------------
-# PRICES
-# --------------------------------------------------
-df["sale_price_num"] = df["sale_price"].str.replace(r"[^\d.]", "", regex=True).astype(float)
-df["original_price_num"] = df["original_price"].str.replace(r"[^\d.]", "", regex=True).astype(float)
+    # ---- sizes
+    sizes = df["product_url"].apply(size_availability)
+    df["xs_available"] = sizes.apply(lambda x: x["XS"])
+    df["s_available"]  = sizes.apply(lambda x: x["S"])
+    df["m_available"]  = sizes.apply(lambda x: x["M"])
+    df["l_available"]  = sizes.apply(lambda x: x["L"])
+    df["xl_available"] = sizes.apply(lambda x: x["XL"])
 
-df["discount_pct"] = (
-    (df["original_price_num"] - df["sale_price_num"])
-    / df["original_price_num"]
-    * 100
-).round(2)
+    df["scrape_id"] = SCRAPE_ID
+    df["scraped_at"] = SCRAPED_AT
 
-# --------------------------------------------------
-# SIZE AVAILABILITY
-# --------------------------------------------------
-sizes = df["product_url"].apply(size_availability)
-
-df["xs_available"] = sizes.apply(lambda x: x["XS"])
-df["s_available"]  = sizes.apply(lambda x: x["S"])
-df["m_available"]  = sizes.apply(lambda x: x["M"])
-df["l_available"]  = sizes.apply(lambda x: x["L"])
-df["xl_available"] = sizes.apply(lambda x: x["XL"])
-
+    all_results.append(df)
 # --------------------------------------------------
 # SQLITE WRITE
 # --------------------------------------------------
-if WRITE_SQLITE and not DRY_RUN:
-    df_to_store = df.copy()
-    df_to_store["scraped_at"] = datetime.utcnow().isoformat()
+if not all_results:
+    raise RuntimeError("No catalogs produced data")
 
-    df_to_store[[
+final_df = pd.concat(all_results, ignore_index=True)
+
+if WRITE_SQLITE and not DRY_RUN:
+    final_df[[
+        "scrape_id",
         "scraped_at",
+        "catalog",
         "product_id",
         "name",
         "sale_price_num",
@@ -210,51 +246,55 @@ else:
     print("DRY RUN — SQLite not written")
 
 # --------------------------------------------------
-# RESULT VIEW
+# RESULT VIEW (per catalog)
 # --------------------------------------------------
-result = (
-    df[df["m_available"] == 1]
-    .sort_values("discount_pct", ascending=False)
-    .loc[:, [
-        "product_id",
-        "name",
-        "discount_pct",
-        "sale_price",
-        "original_price",
-        "product_url"
-    ]]
-)
+for catalog, cfg in CATALOGS.items():
+    size = cfg["target_size"]
+    size_col = SIZE_COLUMN[size]
 
-print("\nTop discounted items with Medium available:")
-print(result.head(10))
+    subset = (
+        final_df[
+            (final_df["catalog"] == catalog) &
+            (final_df[size_col] == 1)
+        ]
+        .sort_values("discount_pct", ascending=False)
+        .loc[:, [
+            "catalog",
+            "product_id",
+            "name",
+            "discount_pct",
+            "sale_price",
+            "original_price",
+            "product_url"
+        ]]
+    )
+
+    print(f"\nTop discounted items — {catalog.upper()} — Size {size}:")
+    print(subset.head(10))
 
 # --------------------------------------------------
 # TELEGRAM
 # --------------------------------------------------
-if SEND_TELEGRAM and not result.empty:
-    message = format_message(result, TOP_N)
-    print("\nTelegram message preview:\n")
-    print(message)
+if SEND_TELEGRAM:
+    for catalog, cfg in CATALOGS.items():
+        size = cfg["target_size"]
+        size_col = SIZE_COLUMN[size]
 
-    if not DRY_RUN:
-        send_telegram_message(message)
-        print("\nTelegram message sent.")
-    else:
-        send_telegram_message(message)
-        print("\nDRY RUN — Telegram not sent")
+        subset = final_df[
+            (final_df["catalog"] == catalog) &
+            (final_df[size_col] == 1)
+            ].sort_values("discount_pct", ascending=False)
 
-# --------------------------------------------------
-# CSV
-# --------------------------------------------------
-if WRITE_CSV and not DRY_RUN:
-    df.to_csv(
-        OUT_FILE,
-        mode="a",
-        header=not OUT_FILE.exists(),
-        index=False
-    )
-    print(f"\nCSV written: {OUT_FILE.resolve()}")
-else:
-    print("DRY RUN — CSV not written")
+        if subset.empty:
+            continue
+
+        message = format_message(subset, catalog, size, TOP_N)
+
+        if not DRY_RUN:
+            send_telegram_message(message)
+            print(f"\nTelegram message sent — {catalog.upper()}.")
+        else:
+            send_telegram_message(message)
+            print(f"\nDRY RUN — Telegram not sent — {catalog.upper()}.")
 
 conn.close()
