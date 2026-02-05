@@ -1,4 +1,4 @@
-name: Uniqlo 15 MIN scrapers, event detector & notifier
+name: Uniqlo Rare Discount Detector
 
 on:
   schedule:
