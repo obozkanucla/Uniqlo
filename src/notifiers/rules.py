@@ -18,7 +18,7 @@ USER_NOTIFICATION_RULES = {
             "RARE_DEEP_DISCOUNT": {
                 "women": {
                     "sizes": ["XS", "S"],
-                    "colors": ["BLACK", "NAVY"]
+                    "colors": None #["BLACK", "NAVY"]
                 }
             }
         }

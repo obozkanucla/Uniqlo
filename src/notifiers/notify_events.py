@@ -1,15 +1,17 @@
-import requests
-from pathlib import Path
-from dotenv import load_dotenv
-load_dotenv()
 import os
+import json
+import requests
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
 from src.notifiers.rules import USER_NOTIFICATION_RULES
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-DB_PATH = BASE_DIR / "db" / "uniqlo.sqlite"
-LOOKBACK_MINUTES = 40
+load_dotenv()
+
 COOLDOWN_HOURS = 24
+MAX_PRICE = 20
+MIN_DISCOUNT = 50
+
 
 def send_telegram_message(bot_token, chat_id: str, text: str):
     requests.post(
@@ -22,19 +24,15 @@ def send_telegram_message(bot_token, chat_id: str, text: str):
         timeout=10
     ).raise_for_status()
 
-import json
-from datetime import datetime, timedelta
-
-COOLDOWN_HOURS = 24
 
 def notify(conn, log=print):
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     rules = USER_NOTIFICATION_RULES
+
     if not bot_token:
-        log("[NOTIFY] No bot token — skipping")
+        log("[NOTIFY] No TELEGRAM_BOT_TOKEN — skipping")
         return
 
-    # Ensure notification table exists
     conn.execute("""
         CREATE TABLE IF NOT EXISTS uniqlo_notifications (
             notified_at TEXT NOT NULL,
@@ -50,46 +48,51 @@ def notify(conn, log=print):
 
     events = conn.execute("""
         SELECT
-            event_time,
-            event_type,
-            product_id,
-            catalog,
-            color,
-            size,
-            event_value
-        FROM uniqlo_events
-        ORDER BY event_time ASC
+            e.event_time,
+            e.event_type,
+            e.product_id,
+            e.catalog,
+            e.color,
+            e.size,
+            o.sale_price_num,
+            o.original_price_num,
+            o.discount_pct
+        FROM uniqlo_events e
+        JOIN uniqlo_sale_observations o
+          ON e.product_id = o.product_id
+        ORDER BY e.event_time ASC
     """).fetchall()
 
     log(f"[NOTIFY] Loaded {len(events)} events")
 
-    for event_time, etype, pid, catalog, color, size, payload in events:
-        data = json.loads(payload)
+    for _, etype, pid, catalog, color, size, sale, orig, discount in events:
+
+        # ---- HARD REVALIDATION ----
+        if sale > MAX_PRICE:
+            # log(f"[NOTIFY] SKIP {pid}: price {sale} > {MAX_PRICE}")
+            continue
+
+        if discount < MIN_DISCOUNT:
+            # log(f"[NOTIFY] SKIP {pid}: discount {discount} < {MIN_DISCOUNT}")
+            continue
+        log(f"[NOTIFY] DEAL CAUGHT {pid}: price {sale} < {MAX_PRICE}")
+        log(f"[NOTIFY] DEAL CAUGHT {pid}: discount {discount} < {MIN_DISCOUNT}")
 
         for user, cfg in rules.items():
             chat_id = cfg.get("chat_id")
             if not chat_id:
-                log(f"[NOTIFY] {user}: no chat_id")
                 continue
 
             rule = cfg["events"].get(etype, {}).get(catalog)
             if not rule:
-                log(f"[NOTIFY] {user}: no rule for {etype}/{catalog}")
                 continue
 
-            # ---- size filter ----
-            allowed_sizes = rule.get("sizes")
-            if allowed_sizes and size not in allowed_sizes:
-                log(f"[NOTIFY] {user}: size {size} not allowed")
+            if rule.get("sizes") and size not in rule["sizes"]:
                 continue
 
-            # ---- color filter ----
-            allowed_colors = rule.get("colors")
-            if allowed_colors and color not in allowed_colors:
-                log(f"[NOTIFY] {user}: color {color} not allowed")
+            if rule.get("colors") and color not in rule["colors"]:
                 continue
 
-            # ---- cooldown ----
             last = conn.execute("""
                 SELECT notified_at
                 FROM uniqlo_notifications
@@ -98,19 +101,16 @@ def notify(conn, log=print):
             """, (chat_id, etype, pid, color, size)).fetchone()
 
             if last:
-                delta = datetime.utcnow() - datetime.fromisoformat(last[0])
-                if delta < timedelta(hours=COOLDOWN_HOURS):
-                    log(f"[NOTIFY] {user}: cooldown active")
+                if datetime.utcnow() - datetime.fromisoformat(last[0]) < timedelta(hours=COOLDOWN_HOURS):
                     continue
 
-            # ---- SEND ----
             text = (
                 "🔥 UNIQLO RARE DEEP DISCOUNT\n\n"
                 f"{catalog.upper()}\n"
                 f"Product: {pid}\n"
                 f"Color: {color}\n"
                 f"Size: {size}\n"
-                f"£{data['price']} ({data['discount']}%)\n\n"
+                f"£{sale} (was £{orig}, -{discount}%)\n\n"
                 f"https://www.uniqlo.com/uk/en/products/E{pid}"
             )
 
