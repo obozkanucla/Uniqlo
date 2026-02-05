@@ -75,8 +75,8 @@ def notify(conn, log=print):
         if discount < MIN_DISCOUNT:
             # log(f"[NOTIFY] SKIP {pid}: discount {discount} < {MIN_DISCOUNT}")
             continue
-        log(f"[NOTIFY] DEAL CAUGHT {pid}: price {sale} < {MAX_PRICE}")
-        log(f"[NOTIFY] DEAL CAUGHT {pid}: discount {discount} < {MIN_DISCOUNT}")
+        # log(f"[NOTIFY] DEAL CAUGHT {pid}: price {sale} < {MAX_PRICE}")
+        # log(f"[NOTIFY] DEAL CAUGHT {pid}: discount {discount} > {MIN_DISCOUNT}")
 
         for user, cfg in rules.items():
             chat_id = cfg.get("chat_id")
