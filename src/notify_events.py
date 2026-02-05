@@ -3,7 +3,6 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime, timedelta
 import requests
-import os
 from dotenv import load_dotenv
 
 from src.notifications.rules import USER_NOTIFICATION_RULES
@@ -13,49 +12,76 @@ from src.notifications.rules import USER_NOTIFICATION_RULES
 # --------------------------------------------------
 load_dotenv()
 
+BOT_TOKEN = Path(__file__).resolve().parents[1]
+BOT_TOKEN = None
+
+import os
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+
 if not BOT_TOKEN:
     raise RuntimeError("TELEGRAM_BOT_TOKEN missing")
 
 # --------------------------------------------------
-# PATHS
+# CONFIG
 # --------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = BASE_DIR / "db" / "uniqlo.sqlite"
 
-LOOKBACK_MINUTES = 40     # > scrape interval
-COOLDOWN_HOURS = 24       # do not notify same item/event/user more than once per day
+LOOKBACK_MINUTES = 40          # slightly > scrape interval
+COOLDOWN_HOURS   = 24          # per product per user
 DRY_RUN = False
 
 # --------------------------------------------------
 # TELEGRAM
 # --------------------------------------------------
-def send_telegram_message(chat_id: int, text: str):
+def send_telegram_message(chat_id: str, text: str):
     r = requests.post(
         f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage",
         json={
             "chat_id": chat_id,
             "text": text,
-            "disable_web_page_preview": True,
+            "disable_web_page_preview": True
         },
-        timeout=10,
+        timeout=10
     )
     r.raise_for_status()
 
 # --------------------------------------------------
-# DB INIT
+# DB HELPERS
 # --------------------------------------------------
-def ensure_notification_log(conn):
+def ensure_notification_table(conn):
     conn.execute("""
-    CREATE TABLE IF NOT EXISTS uniqlo_notifications (
-        sent_at TEXT NOT NULL,
-        user TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        catalog TEXT NOT NULL,
+    CREATE TABLE IF NOT EXISTS uniqlo_notified (
+        user_id TEXT NOT NULL,
         product_id TEXT NOT NULL,
-        PRIMARY KEY (user, event_type, catalog, product_id)
+        event_type TEXT NOT NULL,
+        last_sent_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, product_id, event_type)
     )
     """)
+    conn.commit()
+
+def was_recently_notified(conn, user_id, product_id, event_type, cutoff):
+    row = conn.execute("""
+        SELECT 1
+        FROM uniqlo_notified
+        WHERE user_id = ?
+          AND product_id = ?
+          AND event_type = ?
+          AND last_sent_at >= ?
+    """, (user_id, product_id, event_type, cutoff)).fetchone()
+    return row is not None
+
+def mark_notified(conn, user_id, product_id, event_type):
+    conn.execute("""
+        INSERT OR REPLACE INTO uniqlo_notified
+        VALUES (?, ?, ?, ?)
+    """, (
+        user_id,
+        product_id,
+        event_type,
+        datetime.utcnow().isoformat()
+    ))
     conn.commit()
 
 # --------------------------------------------------
@@ -63,13 +89,13 @@ def ensure_notification_log(conn):
 # --------------------------------------------------
 def main():
     since = (datetime.utcnow() - timedelta(minutes=LOOKBACK_MINUTES)).isoformat()
-    cooldown_since = (datetime.utcnow() - timedelta(hours=COOLDOWN_HOURS)).isoformat()
+    cooldown_cutoff = (datetime.utcnow() - timedelta(hours=COOLDOWN_HOURS)).isoformat()
 
     conn = sqlite3.connect(DB_PATH)
-    ensure_notification_log(conn)
+    ensure_notification_table(conn)
 
     events = conn.execute("""
-        SELECT event_time, catalog, event_type, event_value
+        SELECT event_time, catalog, event_type, product_id, event_value
         FROM uniqlo_events
         WHERE event_time >= ?
         ORDER BY event_time ASC
@@ -77,78 +103,46 @@ def main():
 
     if not events:
         print("No new events.")
-        conn.close()
         return
 
-    for event_time, catalog, event_type, event_value in events:
-        # Expected event_value format:
-        # "<name> | £<price> | <discount>% | Size <X> | <product_id>"
-        try:
-            parts = [p.strip() for p in event_value.split("|")]
-            name = parts[0]
-            size = parts[3].replace("Size", "").strip()
-            product_id = parts[4]
-        except Exception:
-            # Malformed event — skip
+    for user_id, cfg in USER_NOTIFICATION_RULES.items():
+        chat_id = cfg.get("chat_id")
+        if not chat_id:
             continue
 
-        for user, cfg in USER_NOTIFICATION_RULES.items():
-            chat_id = cfg.get("chat_id")
-            if not chat_id:
+        for event_time, catalog, event_type, product_id, event_value in events:
+
+            # user not subscribed to this event
+            if event_type not in cfg["events"]:
                 continue
 
-            event_cfg = cfg["events"].get(event_type)
-            if not event_cfg:
+            # user not interested in this catalog
+            if catalog not in cfg["events"][event_type]:
                 continue
 
-            catalog_cfg = event_cfg.get(catalog)
-            if not catalog_cfg:
+            # cooldown check
+            if was_recently_notified(
+                conn,
+                user_id,
+                product_id,
+                event_type,
+                cooldown_cutoff
+            ):
                 continue
 
-            allowed_sizes = catalog_cfg.get("size", [])
-            if size not in allowed_sizes:
-                continue
-
-            # Cooldown check
-            already_sent = conn.execute("""
-                SELECT 1
-                FROM uniqlo_notifications
-                WHERE user = ?
-                  AND event_type = ?
-                  AND catalog = ?
-                  AND product_id = ?
-                  AND sent_at >= ?
-            """, (user, event_type, catalog, product_id, cooldown_since)).fetchone()
-
-            if already_sent:
-                continue
-
-            # Build message
             text = (
                 "🔥 UNIQLO RARE DEEP DISCOUNT\n\n"
                 f"{catalog.upper()}\n\n"
-                f"{name}\n"
                 f"{event_value}\n\n"
                 f"{event_time} UTC"
             )
 
             if DRY_RUN:
-                print(f"[DRY RUN] Would notify {user}: {text}")
+                print(f"[DRY RUN] → {user_id}: {text}")
             else:
                 send_telegram_message(chat_id, text)
-
-            # Record notification
-            conn.execute("""
-                INSERT OR IGNORE INTO uniqlo_notifications
-                VALUES (?, ?, ?, ?, ?)
-            """, (
-                datetime.utcnow().isoformat(),
-                user,
-                event_type,
-                catalog,
-                product_id,
-            ))
-            conn.commit()
+                mark_notified(conn, user_id, product_id, event_type)
+                print(f"Notified {user_id} — {product_id}")
 
     conn.close()
 
