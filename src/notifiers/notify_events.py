@@ -45,25 +45,26 @@ def notify(conn, log=print):
         )
     """)
     conn.commit()
-
+    LOOKBACK_MINUTES = 40
+    since = (datetime.utcnow() - timedelta(minutes=LOOKBACK_MINUTES)).isoformat()
     events = conn.execute("""
-        SELECT
-            e.event_time,
-            e.event_type,
-            e.product_id,
-            e.catalog,
-            e.color,
-            e.size,
-            o.sale_price_num,
-            o.original_price_num,
-            o.discount_pct
-        FROM uniqlo_events e
-        JOIN uniqlo_sale_observations o
-          ON e.product_id = o.product_id
-        ORDER BY e.event_time ASC
-    """).fetchall()
+                          SELECT e.event_time,
+                                 e.event_type,
+                                 e.product_id,
+                                 e.catalog,
+                                 e.color,
+                                 e.size,
+                                 o.sale_price_num,
+                                 o.original_price_num,
+                                 o.discount_pct
+                          FROM uniqlo_events e
+                                   JOIN uniqlo_sale_observations o
+                                        ON e.product_id = o.product_id
+                          WHERE e.event_time >= ?
+                          ORDER BY e.event_time ASC
+                          """, (since,)).fetchall()
 
-    log(f"[NOTIFY] Loaded {len(events)} events")
+    log(f"[NOTIFY] Loaded {len(events)} recent events")
 
     for _, etype, pid, catalog, color, size, sale, orig, discount in events:
 

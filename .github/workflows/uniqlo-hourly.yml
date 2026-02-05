@@ -2,7 +2,7 @@ name: Uniqlo Rare Discount Detector
 
 on:
   schedule:
-    - cron: "0 10-21 * * *"
+    - cron: "0 10-21 * * *"   # hourly, 12 runs/day (UTC)
   workflow_dispatch:
 
 concurrency:
@@ -18,15 +18,15 @@ jobs:
     timeout-minutes: 90
 
     env:
-      # -----------------------------
-      # Telegram credentials
-      # -----------------------------
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN}}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID}}
-      TELEGRAM_CHAT_ID_MUGE: ${{ secrets.TELEGRAM_CHAT_ID_MUGE}}
-      TELEGRAM_CHAT_ID_BURAK: ${{ secrets.TELEGRAM_CHAT_ID_BURAK}}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID_MUGE: ${{ secrets.TELEGRAM_CHAT_ID_MUGE }}
+      TELEGRAM_CHAT_ID_BURAK: ${{ secrets.TELEGRAM_CHAT_ID_BURAK }}
 
     steps:
+      - name: Record start time
+        run: |
+          echo "JOB_START_TS=$(date +%s)" >> $GITHUB_ENV
+
       - name: Checkout repo
         uses: actions/checkout@v4
 
@@ -56,6 +56,8 @@ jobs:
       # Restore SQLite DB
       # ---------------------------------------------
       - name: Restore SQLite database
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -e
           mkdir -p db
@@ -63,14 +65,13 @@ jobs:
             --pattern uniqlo.sqlite \
             --output db/uniqlo.sqlite \
             --clobber || echo "No existing DB found — starting fresh"
-              env:
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ---------------------------------------------
       # Orchestrator
       # ---------------------------------------------
-      - name: Run catalog scrapers
-        run: python src/orchestrator.py
+      - name: Run orchestrator
+        run: |
+          python src/orchestrator.py
 
       # ---------------------------------------------
       # Persist DB
@@ -90,3 +91,4 @@ jobs:
           JOB_END_TS=$(date +%s)
           echo "JOB_END_TS=$JOB_END_TS" >> $GITHUB_ENV
           echo "JOB_DURATION_MIN=$(( (JOB_END_TS - JOB_START_TS) / 60 ))" >> $GITHUB_ENV
+          echo "Job duration: $(( (JOB_END_TS - JOB_START_TS) / 60 )) minutes"
