@@ -10,6 +10,7 @@ from src.events.rare_deep_discount import detect
 from src.notifiers.notify_events import notify
 from dotenv import load_dotenv
 load_dotenv()
+from db.schema import reset_events_table
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 DB_PATH = BASE_DIR / "db" / "uniqlo.sqlite"
@@ -33,6 +34,8 @@ def main():
 
     conn = sqlite3.connect(DB_PATH)
     init_db(conn)
+    log("Resetting events table")
+    reset_events_table(conn)
     log("DB initialized")
 
     # 1. Scrape catalog (PURE)

@@ -8,7 +8,8 @@ from src.notifiers.rules import USER_NOTIFICATION_RULES
 
 load_dotenv()
 
-COOLDOWN_HOURS = 24
+# ---- TEST MODE ----
+COOLDOWN_MINUTES = 2
 MAX_PRICE = 20
 MIN_DISCOUNT = 50
 
@@ -102,7 +103,9 @@ def notify(conn, log=print):
             """, (chat_id, etype, pid, color, size)).fetchone()
 
             if last:
-                if datetime.utcnow() - datetime.fromisoformat(last[0]) < timedelta(hours=COOLDOWN_HOURS):
+                delta = datetime.utcnow() - datetime.fromisoformat(last[0])
+                if delta < timedelta(minutes=COOLDOWN_MINUTES):
+                    log(f"[NOTIFY] {user}: cooldown active ({delta.seconds}s)")
                     continue
 
             text = (

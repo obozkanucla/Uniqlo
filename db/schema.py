@@ -60,3 +60,19 @@ def init_db(conn):
     """)
 
     conn.commit()
+
+def reset_events_table(conn):
+    conn.execute("DROP TABLE IF EXISTS uniqlo_events")
+    conn.execute("""
+        CREATE TABLE uniqlo_events (
+            event_time TEXT NOT NULL,
+            catalog TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            color TEXT NOT NULL,
+            size TEXT NOT NULL,
+            event_value TEXT,
+            PRIMARY KEY (event_time, event_type, product_id, color, size)
+        )
+    """)
+    conn.commit()
