@@ -2,7 +2,7 @@ name: Uniqlo 15 MIN scrapers, event detector & notifier
 
 on:
   schedule:
-    - cron: "0,20,40 10-21 * * *"
+    - cron: "0 10-21 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -58,35 +58,10 @@ jobs:
                 GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ---------------------------------------------
-      # Scrape
+      # Orchestrator
       # ---------------------------------------------
       - name: Run catalog scrapers
-        run: python src/scrape_catalog.py
-
-      - name: Run availability scrapers
-        run: python src/scrape_availability.py
-
-      # ---------------------------------------------
-      # Detect events
-      # ---------------------------------------------
-      - name: Detect events
-        env:
-          PYTHONPATH: .
-        run: |
-          python src/detect_events.py
-
-      # ---------------------------------------------
-      # Notify
-      # ---------------------------------------------
-      - name: Notify events
-        continue-on-error: true
-        env:
-          PYTHONPATH: .
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID_BURAK: ${{ secrets.TELEGRAM_CHAT_ID_BURAK }}
-          TELEGRAM_CHAT_ID_MUGE: ${{ secrets.TELEGRAM_CHAT_ID_MUGE }}
-        run: |
-          python src/notify_events.py
+        run: python src/orchestrator.py
 
       # ---------------------------------------------
       # Persist DB
