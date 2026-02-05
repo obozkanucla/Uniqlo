@@ -71,8 +71,7 @@ jobs:
       # ---------------------------------------------
       - name: Run orchestrator
         run: |
-          python src/orchestrator.py
-
+          python -m src.orchestrator
       # ---------------------------------------------
       # Persist DB
       # ---------------------------------------------

@@ -4,10 +4,10 @@ from pathlib import Path
 from datetime import datetime
 
 from db.schema import init_db
-from scrapers.catalog_scraper import scrape_catalog
-from scrapers.color_availability_playwright import scrape_sku_availability
-from events.rare_deep_discount import detect as detect_rare_deep_discount
-from notifiers.notify_events import notify
+from src.scrapers.catalog_scraper import scrape_catalog
+from src.scrapers.color_availability_playwright import scrape_sku_availability
+from src.events.rare_deep_discount import detect
+from src.notifiers.notify_events import notify
 from dotenv import load_dotenv
 load_dotenv()
 
