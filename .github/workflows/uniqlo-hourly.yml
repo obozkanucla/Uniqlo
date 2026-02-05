@@ -15,7 +15,16 @@ permissions:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 90
+
+    env:
+      # -----------------------------
+      # Telegram credentials
+      # -----------------------------
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN}}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID}}
+      TELEGRAM_CHAT_ID_MUGE: ${{ secrets.TELEGRAM_CHAT_ID_MUGE}}
+      TELEGRAM_CHAT_ID_BURAK: ${{ secrets.TELEGRAM_CHAT_ID_BURAK}}
 
     steps:
       - name: Checkout repo
@@ -25,6 +34,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
       # --------------------------------------------------
       # Playwright
@@ -37,11 +51,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libnss3 libatk1.0-0 libx11-xcb1
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
 
       # ---------------------------------------------
       # Restore SQLite DB
@@ -74,3 +83,10 @@ jobs:
           files: db/uniqlo.sqlite
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Record end time and duration
+        if: always()
+        run: |
+          JOB_END_TS=$(date +%s)
+          echo "JOB_END_TS=$JOB_END_TS" >> $GITHUB_ENV
+          echo "JOB_DURATION_MIN=$(( (JOB_END_TS - JOB_START_TS) / 60 ))" >> $GITHUB_ENV
