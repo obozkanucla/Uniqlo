@@ -1,4 +1,4 @@
-name: Uniqlo 15 MIN scraper, event detector & notifier
+name: Uniqlo 15 MIN scrapers, event detector & notifier
 
 on:
   schedule:
@@ -26,6 +26,18 @@ jobs:
         with:
           python-version: "3.11"
 
+      # --------------------------------------------------
+      # Playwright
+      # --------------------------------------------------
+      - name: Install Playwright browsers
+        run: |
+          python -m playwright install chromium --with-deps
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libatk1.0-0 libx11-xcb1
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -36,23 +48,23 @@ jobs:
       # ---------------------------------------------
       - name: Restore SQLite database
         run: |
+          set -e
           mkdir -p db
           gh release download uniqlo-db-latest \
             --pattern uniqlo.sqlite \
             --output db/uniqlo.sqlite \
             --clobber || echo "No existing DB found — starting fresh"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ---------------------------------------------
       # Scrape
       # ---------------------------------------------
-      - name: Run Uniqlo scraper
-        env:
-          PYTHONPATH: .
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        run: |
-          python src/uniqlo_scraper.py
+      - name: Run catalog scrapers
+        run: python src/scrape_catalog.py
+
+      - name: Run availability scrapers
+        run: python src/scrape_availability.py
 
       # ---------------------------------------------
       # Detect events

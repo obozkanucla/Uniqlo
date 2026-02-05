@@ -38,3 +38,4 @@ gensim-data/
 
 # SQLlite
 db/*.sqlite
+db/*.db

@@ -36,6 +36,7 @@ class ItemCountIncrease(EventDetector):
                 now.isoformat(),
                 catalog,
                 self.event_type,
+                None,
                 f"{previous} → {current} (+{current - previous})"
             )]
 

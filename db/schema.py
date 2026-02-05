@@ -24,13 +24,26 @@ def init_db(conn):
     """)
 
     conn.execute("""
+    CREATE TABLE IF NOT EXISTS uniqlo_sku_availability (
+        observed_at TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        color TEXT NOT NULL,
+        size TEXT NOT NULL,
+        is_available INTEGER NOT NULL,
+        PRIMARY KEY (observed_at, product_id, color, size)
+    )
+    """)
+
+    conn.execute("""
     CREATE TABLE IF NOT EXISTS uniqlo_events (
         event_time TEXT NOT NULL,
-        catalog TEXT NOT NULL,
+        catalog TEXT,
         event_type TEXT NOT NULL,
         product_id TEXT NOT NULL,
+        color TEXT,
+        size TEXT,
         event_value TEXT,
-        PRIMARY KEY (event_time, catalog, event_type, product_id)
+        PRIMARY KEY (event_time, event_type, product_id, color, size)
     )
     """)
 
@@ -40,7 +53,9 @@ def init_db(conn):
         chat_id TEXT NOT NULL,
         event_type TEXT NOT NULL,
         product_id TEXT NOT NULL,
-        PRIMARY KEY (chat_id, event_type, product_id, notified_at)
+        color TEXT,
+        size TEXT,
+        PRIMARY KEY (chat_id, event_type, product_id, color, size)
     )
     """)
 

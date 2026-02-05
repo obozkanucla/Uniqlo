@@ -1,58 +1,42 @@
-# src/events/deep_discount.py
+import json
 from datetime import datetime
-from .base import EventDetector
 
-class DeepDiscountDetector(EventDetector):
-    event_type = "RARE_DEEP_DISCOUNT"
+EVENT_TYPE = "RARE_DEEP_DISCOUNT"
 
-    def __init__(self, price_threshold=10.0, min_discount_pct=50.0):
-        self.price_threshold = price_threshold
-        self.min_discount_pct = min_discount_pct
 
-    def detect(self, conn, catalog: str):
-        now = datetime.utcnow().isoformat()
+def detect(conn):
+    now = datetime.utcnow().isoformat()
 
-        rows = conn.execute("""
-            WITH latest AS (
-                SELECT *
-                FROM uniqlo_sale_observations
-                WHERE catalog = ?
-                  AND scraped_at = (
-                      SELECT MAX(scraped_at)
-                      FROM uniqlo_sale_observations
-                      WHERE catalog = ?
-                  )
-            )
-            SELECT
-                product_id,
-                name,
-                sale_price_num,
-                discount_pct
-            FROM latest
-            WHERE
-                sale_price_num < ?
-                AND discount_pct >= ?
-                AND (
-                    xs_available = 1
-                    OR s_available = 1
-                    OR m_available = 1
-                    OR l_available = 1
-                    OR xl_available = 1
-                )
-        """, (
+    rows = conn.execute("""
+        SELECT
+            o.product_id,
+            o.catalog,
+            a.color,
+            a.size,
+            o.sale_price_num,
+            o.discount_pct
+        FROM uniqlo_sale_observations o
+        JOIN uniqlo_sku_availability a
+          ON o.product_id = a.product_id
+        WHERE o.sale_price_num < 10
+          AND o.discount_pct >= 50
+          AND a.is_available = 1
+    """).fetchall()
+
+    events = []
+
+    for pid, catalog, color, size, price, discount in rows:
+        events.append((
+            now,
             catalog,
-            catalog,
-            self.price_threshold,
-            self.min_discount_pct,
-        )).fetchall()
+            EVENT_TYPE,
+            pid,
+            color,
+            size,
+            json.dumps({
+                "price": price,
+                "discount": discount
+            })
+        ))
 
-        return [
-            (
-                now,
-                catalog,
-                self.event_type,
-                product_id,
-                f"{name} | £{price:.2f} | {discount:.0f}%"
-            )
-            for product_id, name, price, discount in rows
-        ]
+    return events

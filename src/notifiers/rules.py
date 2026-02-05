@@ -1,4 +1,3 @@
-# src/notifications/rules.py
 import os
 
 USER_NOTIFICATION_RULES = {
@@ -6,7 +5,10 @@ USER_NOTIFICATION_RULES = {
         "chat_id": os.getenv("TELEGRAM_CHAT_ID_BURAK"),
         "events": {
             "RARE_DEEP_DISCOUNT": {
-                "men":   {"size": ["M"]},
+                "men": {
+                    "sizes": ["M", "32inch", "33inch"],
+                    "colors": None
+                }
             }
         }
     },
@@ -14,7 +16,10 @@ USER_NOTIFICATION_RULES = {
         "chat_id": os.getenv("TELEGRAM_CHAT_ID_MUGE"),
         "events": {
             "RARE_DEEP_DISCOUNT": {
-                "women": {"size": ["XS", "S"]},
+                "women": {
+                    "sizes": ["XS", "S"],
+                    "colors": ["BLACK", "NAVY"]
+                }
             }
         }
     }

@@ -1,10 +1,10 @@
 import sqlite3
 from pathlib import Path
 from src.events.item_count import ItemCountIncrease
-from src.events.deep_discount import DeepDiscountDetector
+from src.events.rare_deep_discount import DeepDiscountDetector
 
-DB_PATH = Path("db/uniqlo.sqlite")
-
+BASE_DIR = Path(__file__).resolve().parents[1]
+DB_PATH = BASE_DIR / "db" / "uniqlo.sqlite"
 DETECTORS = [
     ItemCountIncrease(window_minutes=30),
     DeepDiscountDetector(price_threshold=10.0, min_discount_pct=50.0),
@@ -28,11 +28,13 @@ def main():
     for catalog in CATALOGS:
         for detector in DETECTORS:
             events = detector.detect(conn, catalog)
-            for event_time, catalog, event_type, event_value in events:
+            for event_time, catalog, event_type, product_id, event_value in events:
                 conn.execute("""
-                INSERT OR IGNORE INTO uniqlo_events
-                VALUES (?, ?, ?, ?)
-                """, (event_time, catalog, event_type, event_value))
+                             INSERT
+                             OR IGNORE INTO uniqlo_events
+                    (event_time, catalog, event_type, product_id, event_value)
+                    VALUES (?, ?, ?, ?, ?)
+                             """, (event_time, catalog, event_type, product_id, event_value))
 
     conn.commit()
     conn.close()

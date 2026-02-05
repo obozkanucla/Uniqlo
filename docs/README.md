@@ -188,3 +188,15 @@ If you want next:
 - tighten the deep-discount logic further
 - add a daily “summary mode”
 - or visualize historical sale timing patterns
+
+SCRAPER (facts)
+   ↓
+SNAPSHOT TABLE
+   ↓
+DETECTORS (conditions)
+   ↓
+EVENT TABLE (facts)
+   ↓
+NOTIFIER (human relevance)
+   ↓
+TELEGRAM
