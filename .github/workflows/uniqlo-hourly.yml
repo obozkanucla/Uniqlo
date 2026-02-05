@@ -1,8 +1,8 @@
-name: Uniqlo half hourly scraper, event detector & notifier
+name: Uniqlo 15 MIN scraper, event detector & notifier
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
 
 concurrency:
@@ -31,6 +31,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # ---------------------------------------------
+      # Restore SQLite DB
+      # ---------------------------------------------
       - name: Restore SQLite database
         run: |
           mkdir -p db
@@ -41,25 +44,41 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ---------------------------------------------
+      # Scrape
+      # ---------------------------------------------
       - name: Run Uniqlo scraper
         env:
+          PYTHONPATH: .
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python src/uniqlo_scraper.py
 
+      # ---------------------------------------------
+      # Detect events
+      # ---------------------------------------------
       - name: Detect events
+        env:
+          PYTHONPATH: .
         run: |
           python src/detect_events.py
 
+      # ---------------------------------------------
+      # Notify
+      # ---------------------------------------------
       - name: Notify events
         continue-on-error: true
         env:
+          PYTHONPATH: .
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHAT_ID_BURAK: ${{ secrets.TELEGRAM_CHAT_ID_BURAK }}
+          TELEGRAM_CHAT_ID_MUGE: ${{ secrets.TELEGRAM_CHAT_ID_MUGE }}
         run: |
           python src/notify_events.py
 
+      # ---------------------------------------------
+      # Persist DB
+      # ---------------------------------------------
       - name: Publish SQLite snapshot
         uses: softprops/action-gh-release@v2
         with:

@@ -1,14 +1,13 @@
 import sqlite3
 from pathlib import Path
-from events.item_count import ItemCountIncrease
+from src.events.item_count import ItemCountIncrease
+from src.events.deep_discount import DeepDiscountDetector
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-DB_PATH = BASE_DIR / "db" / "uniqlo.sqlite"
+DB_PATH = Path("db/uniqlo.sqlite")
 
 DETECTORS = [
     ItemCountIncrease(window_minutes=30),
-    # NewItemDetector(),      # later
-    # ReappearedDetector(),   # later
+    DeepDiscountDetector(price_threshold=10.0, min_discount_pct=50.0),
 ]
 
 CATALOGS = ["men", "women"]
@@ -22,7 +21,7 @@ def main():
         catalog TEXT NOT NULL,
         event_type TEXT NOT NULL,
         event_value TEXT,
-        PRIMARY KEY (event_time, catalog, event_type)
+        PRIMARY KEY (event_time, catalog, event_type, event_value)
     )
     """)
 
