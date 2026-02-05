@@ -38,7 +38,7 @@ def detect(conn):
         FROM latest_prices lp
         JOIN uniqlo_sku_availability a
           ON lp.product_id = a.product_id
-        WHERE lp.sale_price_num < 20
+        WHERE lp.sale_price_num < 10
           AND lp.discount_pct >= 50
           AND a.is_available = 1
     """).fetchall()

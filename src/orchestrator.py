@@ -59,7 +59,7 @@ def main():
 
     # 3. Detect events
     log("Detecting events")
-    events = detect_rare_deep_discount(conn)
+    events = detect(conn)
     log(f"Events detected: {len(events)}")
 
     if events:
