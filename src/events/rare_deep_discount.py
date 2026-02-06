@@ -19,8 +19,8 @@ def detect(conn):
         FROM uniqlo_sku_state
         WHERE
             is_available = 1
-            AND discount_pct >= 40
-            AND sale_price < 30
+            AND discount_pct >= 70
+            AND sale_price < 10
     """).fetchall()
 
     events = []
