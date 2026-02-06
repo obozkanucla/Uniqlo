@@ -1,76 +1,108 @@
-import re, requests, pandas as pd
-from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 from datetime import datetime
 import uuid
-
-HEADERS = {"User-Agent": "Mozilla/5.0"}
-
-CATALOGS = {
-    "men": "https://www.uniqlo.com/uk/en/feature/sale/men",
-    "women": "https://www.uniqlo.com/uk/en/feature/sale/women",
-}
-
+from urllib.parse import urljoin, urlparse
 import re
-import requests
-import pandas as pd
-from bs4 import BeautifulSoup
-from datetime import datetime
 
-HEADERS = {"User-Agent": "Mozilla/5.0"}
-
-CATALOGS = {
+CATALOG_URLS = {
     "men": "https://www.uniqlo.com/uk/en/feature/sale/men",
     "women": "https://www.uniqlo.com/uk/en/feature/sale/women",
 }
 
-def scrape_catalog() -> pd.DataFrame:
+VARIANT_ID_RE = re.compile(r"(E\d{6}-\d{3})")
+
+
+def scrape_catalog(conn, log=print):
+    scrape_id = uuid.uuid4().hex
     scraped_at = datetime.utcnow().isoformat()
-    rows: list[dict] = []
 
-    seen: set[tuple[str, str]] = set()   # ← ADD THIS
+    rows = []
+    seen_variants = set()
 
-    for catalog, url in CATALOGS.items():
-        r = requests.get(url, headers=HEADERS, timeout=15)
-        r.raise_for_status()
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
 
-        soup = BeautifulSoup(r.text, "html.parser")
+        for catalog, url in CATALOG_URLS.items():
+            log(f"[CATALOG] Loading {catalog}")
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
 
-        for tile in soup.select("div.product-tile"):
-            img = tile.select_one("img[src*='imagesgoods']")
-            if not img:
-                continue
+            # ------------------------------------------------
+            # Infinite scroll until tile count stabilises
+            # ------------------------------------------------
+            last_count = 0
+            stable_rounds = 0
 
-            m = re.search(r"imagesgoods/(\d{6})", img["src"])
-            if not m:
-                continue
+            while stable_rounds < 3:
+                page.mouse.wheel(0, 5000)
+                page.wait_for_timeout(1500)
 
-            product_id = m.group(1)
-            key = (catalog, product_id)
+                links = page.query_selector_all(
+                    'a[href^="/uk/en/products/E"]'
+                )
+                count = len(links)
 
-            if key in seen:              # ← DEDUPE HERE
-                continue
-            seen.add(key)
+                if count == last_count:
+                    stable_rounds += 1
+                else:
+                    stable_rounds = 0
+                    last_count = count
 
-            sale_el = tile.select_one(".ito-red500")
-            orig_el = tile.select_one(".strikethrough")
-            if not sale_el or not orig_el:
-                continue
+            log(f"[CATALOG] {catalog}: {last_count} product links")
 
-            try:
-                sale = float(re.sub(r"[^\d.]", "", sale_el.text))
-                orig = float(re.sub(r"[^\d.]", "", orig_el.text))
-            except ValueError:
-                continue
+            # ------------------------------------------------
+            # Extract canonical variant URLs
+            # ------------------------------------------------
+            for a in page.query_selector_all(
+                'a[href^="/uk/en/products/E"]'
+            ):
+                href = a.get_attribute("href")
+                if not href:
+                    continue
 
-            rows.append({
-                "scraped_at": scraped_at,
-                "catalog": catalog,
-                "product_id": product_id,
-                "name": tile.get_text(strip=True)[:200],
-                "sale_price_num": sale,
-                "original_price_num": orig,
-                "discount_pct": round((orig - sale) / orig * 100, 2),
-                "product_url": f"https://www.uniqlo.com/uk/en/products/E{product_id}",
-            })
+                m = VARIANT_ID_RE.search(href)
+                if not m:
+                    continue
 
-    return pd.DataFrame(rows)
+                variant_id = m.group(1)
+                full_url = urljoin("https://www.uniqlo.com", href.split("?")[0])
+
+                key = (catalog, variant_id)
+                if key in seen_variants:
+                    continue
+                seen_variants.add(key)
+
+                rows.append((
+                    scrape_id,
+                    scraped_at,
+                    catalog,
+                    variant_id,
+                    full_url,
+                ))
+
+        browser.close()
+
+    if not rows:
+        log("[CATALOG] No variants found")
+        return
+
+    conn.executemany(
+        """
+        INSERT OR IGNORE INTO uniqlo_sale_variants (
+            scrape_id,
+            scraped_at,
+            catalog,
+            variant_id,
+            variant_url
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        rows,
+    )
+
+    conn.commit()
+    log(conn.execute("""
+                     SELECT catalog, COUNT (*)
+                     FROM uniqlo_sale_observations
+                     GROUP BY catalog
+                     """).fetchall())

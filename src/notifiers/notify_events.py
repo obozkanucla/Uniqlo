@@ -9,7 +9,7 @@ from src.notifiers.rules import USER_NOTIFICATION_RULES
 load_dotenv()
 
 # ---- TEST MODE ----
-COOLDOWN_MINUTES = 2
+COOLDOWN_MINUTES = 0
 MAX_PRICE = 20
 MIN_DISCOUNT = 50
 
@@ -85,6 +85,11 @@ def notify(conn, log=print):
             if not chat_id:
                 continue
 
+            user_event_rules = cfg["events"].get(etype, {})
+            log(f"[DEBUG] USER={user} RULE CATALOG KEYS={list(user_event_rules.keys())}")
+            log(f"[DEBUG] EVENT etype={etype} catalog={catalog} user={user}")
+            log(f"[DEBUG] USER RULES for etype={etype}: {cfg['events'].get(etype)}")
+
             rule = cfg["events"].get(etype, {}).get(catalog)
             if not rule:
                 continue
@@ -117,7 +122,12 @@ def notify(conn, log=print):
                 f"£{sale} (was £{orig}, -{discount}%)\n\n"
                 f"https://www.uniqlo.com/uk/en/products/E{pid}"
             )
-
+            log(
+                f"[DEBUG] PASS user={user} "
+                f"pid={pid} catalog={catalog} "
+                f"color={color} size={size} "
+                f"price={sale} discount={discount}"
+            )
             send_telegram_message(bot_token, chat_id, text)
 
             conn.execute("""

@@ -55,16 +55,16 @@ jobs:
       # ---------------------------------------------
       # Restore SQLite DB
       # ---------------------------------------------
-      - name: Restore SQLite database
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          mkdir -p db
-          gh release download uniqlo-db-latest \
-            --pattern uniqlo.sqlite \
-            --output db/uniqlo.sqlite \
-            --clobber || echo "No existing DB found — starting fresh"
+#      - name: Restore SQLite database
+#        env:
+#          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#        run: |
+#          set -e
+#          mkdir -p db
+#          gh release download uniqlo-db-latest \
+#            --pattern uniqlo.sqlite \
+#            --output db/uniqlo.sqlite \
+#            --clobber || echo "No existing DB found — starting fresh"
 
       # ---------------------------------------------
       # Orchestrator
