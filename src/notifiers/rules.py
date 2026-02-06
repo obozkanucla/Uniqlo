@@ -12,7 +12,7 @@ USER_NOTIFICATION_RULES = {
                 #     "colors": None
                 # },
                 "men": {
-                    "sizes": ["M", "32inch", "33inch"],
+                    "sizes": ["M", "28inch", "32inch", "33inch"],
                     "colors": None
                 }
             }

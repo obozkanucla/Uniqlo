@@ -36,7 +36,7 @@ def notify(conn, log=print):
     # --------------------------------------------------
     LOOKBACK_MINUTES = 60
     since = (datetime.utcnow() - timedelta(minutes=LOOKBACK_MINUTES)).isoformat()
-    print(conn.execute("PRAGMA table_info(uniqlo_events)").fetchall())
+    # print(conn.execute("PRAGMA table_info(uniqlo_events)").fetchall())
     events = conn.execute(
         """
             SELECT

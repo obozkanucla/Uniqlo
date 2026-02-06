@@ -44,7 +44,7 @@ def main():
 
     # 2. Scrape SKU availability
     log("Scraping SKU availability")
-    scrape_sku_state(conn, log) #, max_variants=5)
+    scrape_sku_state(conn, log, max_variants=10)
     log("SKU availability scraped")
 
     # 3. Detect events
@@ -68,6 +68,11 @@ def main():
                         )
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                          """, events)
+
+        print(
+            "rows_on_disk:",
+            conn.execute("SELECT COUNT(*) FROM uniqlo_events").fetchone()
+        )
         conn.commit()
 
     # 4. Notify
