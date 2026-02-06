@@ -109,7 +109,7 @@ def notify(conn, log=print):
                 delta = datetime.utcnow() - datetime.fromisoformat(last[0])
                 if delta < timedelta(minutes=COOLDOWN_MINUTES):
                     continue
-
+            url = (f"https://www.uniqlo.com/uk/en/products/{variant_id}"f"?colorDisplayCode={color}")
             text = (
                 "🔥 UNIQLO RARE DEEP DISCOUNT\n\n"
                 f"{catalog.upper()}\n"

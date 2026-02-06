@@ -118,7 +118,9 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
     - price per (variant, color)
     - availability per (variant, color, size)
     """
-
+    log(conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall())
     variants = conn.execute("""
         SELECT catalog, product_id, variant_id, variant_url
         FROM uniqlo_sale_variants
