@@ -35,23 +35,21 @@ def init_db(conn):
     # 2. Canonical SKU truth table
     # --------------------------------------------------
     conn.execute("""
-    CREATE TABLE IF NOT EXISTS uniqlo_sku_state (
-        observed_at TEXT NOT NULL,
-        catalog TEXT NOT NULL,
-
-        product_id TEXT NOT NULL,
-        variant_id TEXT NOT NULL,
-        color_code TEXT NOT NULL,
-        size TEXT NOT NULL,
-
-        sale_price REAL,
-        original_price REAL,
-        discount_pct REAL,
-
-        is_available INTEGER NOT NULL,
-
-        PRIMARY KEY (variant_id, color_code, size)
-    )
+            CREATE TABLE IF NOT EXISTS uniqlo_sku_state (
+                observed_at     TEXT    NOT NULL,
+                catalog         TEXT    NOT NULL,
+                product_id      TEXT    NOT NULL,
+                variant_id      TEXT    NOT NULL,
+                color_code      TEXT    NOT NULL,
+                color_label     TEXT    NOT NULL,
+                size_code       TEXT    NOT NULL,
+                size_label      TEXT    NOT NULL,
+                sale_price      REAL,
+                original_price  REAL,
+                discount_pct    REAL,
+                is_available    INTEGER NOT NULL,
+                PRIMARY KEY (variant_id, color_code, size_code)
+            )
     """)
 
     # --------------------------------------------------

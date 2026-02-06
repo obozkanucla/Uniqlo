@@ -213,7 +213,9 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                             product_id,
                             variant_id,
                             color["color_code"],
+                            color["color_label"],
                             s["size_code"],
+                            s["size_label"],
                             price["sale_price"],
                             price["original_price"],
                             price["discount_pct"],
@@ -237,19 +239,21 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
     log(f"[SKU] Persisting {len(rows)} SKU rows")
 
     conn.executemany("""
-        INSERT OR REPLACE INTO uniqlo_sku_state (
-            observed_at,
-            catalog,
-            product_id,
-            variant_id,
-            color_code,
-            size,
-            sale_price,
-            original_price,
-            discount_pct,
-            is_available
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO uniqlo_sku_state (
+                observed_at,
+                catalog,
+                product_id,
+                variant_id,
+                color_code,
+                color_label,
+                size_code,
+                size_label,
+                sale_price,
+                original_price,
+                discount_pct,
+                is_available
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, rows)
 
     conn.commit()
