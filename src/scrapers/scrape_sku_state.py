@@ -61,28 +61,32 @@ def wait_for_refresh(page):
 
 
 def read_price(page):
-    """
-    Reads price ONCE per color.
-    Returns None if price is not discounted / not visible.
-    """
     return page.evaluate("""
         () => {
-            const sale = document.querySelector(".ito-red500");
-            const orig = document.querySelector(".strikethrough");
+            const saleEl = document.querySelector(
+                ".fr-ec-price-text--color-promotional"
+            );
+            const origEl = document.querySelector(
+                ".fr-ec-price__strike-through"
+            );
 
-            if (!sale || !orig) return null;
+            if (!saleEl || !origEl) return null;
 
-            const clean = t => parseFloat(t.replace(/[^\d.]/g, ""));
+            const clean = t => parseFloat(
+                t.replace(/[^0-9.]/g, "")
+            );
 
-            const sale_p = clean(sale.innerText);
-            const orig_p = clean(orig.innerText);
+            const sale = clean(saleEl.innerText);
+            const original = clean(origEl.innerText);
 
-            if (!sale_p || !orig_p) return null;
+            if (!sale || !original || sale >= original) return null;
 
             return {
-                sale_price: sale_p,
-                original_price: orig_p,
-                discount_pct: Math.round((orig_p - sale_p) / orig_p * 10000) / 100
+                sale_price: sale,
+                original_price: original,
+                discount_pct: Math.round(
+                    (original - sale) / original * 10000
+                ) / 100
             };
         }
     """)
