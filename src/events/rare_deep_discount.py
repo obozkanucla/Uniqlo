@@ -12,7 +12,9 @@ def detect(conn):
             product_id,
             variant_id,
             color_code,
-            size,
+            color_label,
+            size_code,
+            size_label,
             sale_price,
             original_price,
             discount_pct
@@ -26,24 +28,27 @@ def detect(conn):
     events = []
 
     for (
-        catalog,
-        product_id,
-        variant_id,
-        color,
-        size,
-        sale,
-        original,
-        discount
+            catalog,
+            product_id,
+            variant_id,
+            color_code,
+            color_label,
+            size_code,
+            size_label,
+            sale,
+            original,
+            discount
     ) in rows:
-
         events.append((
             now,
             catalog,
             EVENT_TYPE,
             product_id,
             variant_id,
-            color,
-            size,
+            color_code,
+            color_label,
+            size_code,
+            size_label,
             json.dumps({
                 "sale_price": sale,
                 "original_price": original,

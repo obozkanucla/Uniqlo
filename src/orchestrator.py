@@ -44,7 +44,7 @@ def main():
 
     # 2. Scrape SKU availability
     log("Scraping SKU availability")
-    scrape_sku_state(conn, log) #, max_variants=5)
+    scrape_sku_state(conn, log)#, max_variants=5)
     log("SKU availability scraped")
 
     # 3. Detect events
