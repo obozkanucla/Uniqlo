@@ -109,7 +109,8 @@ def notify(conn, log=print):
                 delta = datetime.utcnow() - datetime.fromisoformat(last[0])
                 if delta < timedelta(minutes=COOLDOWN_MINUTES):
                     continue
-            url = (f"https://www.uniqlo.com/uk/en/products/{variant_id}"f"?colorDisplayCode={color}")
+            url = (f"https://www.uniqlo.com/uk/en/products/{variant_id}"
+                   f"?colorDisplayCode={color}&sizeDisplayCode={size}")
             text = (
                 "🔥 UNIQLO RARE DEEP DISCOUNT\n\n"
                 f"{catalog.upper()}\n"
@@ -118,7 +119,7 @@ def notify(conn, log=print):
                 f"Color: {color}\n"
                 f"Size: {size}\n"
                 f"£{sale} (was £{original}, -{discount}%)\n\n"
-                f"https://www.uniqlo.com/uk/en/products/{variant_id}"
+                f"{url}"
             )
 
             send_telegram_message(bot_token, chat_id, text)

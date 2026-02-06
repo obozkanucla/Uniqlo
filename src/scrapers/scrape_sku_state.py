@@ -20,26 +20,31 @@ def kill_overlays(page):
         }
     """)
 
-
 def get_colors(page):
     """
-    Returns enabled color chips on a variant page.
-    Identified by chip image URLs (goods_<color>_<product>_chip.jpg).
+    Returns enabled color chips with BOTH:
+    - color_display_code (e.g. '09')
+    - color_label (e.g. 'BLACK')
     """
     return page.evaluate("""
         () => Array.from(
-            document.querySelectorAll(
-                "button[data-testid='ITOChip'] img[src*='/chip/goods_']"
-            )
+            document.querySelectorAll("button[data-testid='ITOChip']")
         )
-        .map(img => {
-            const btn = img.closest("button");
-            if (!btn) return null;
-            if (btn.getAttribute("aria-disabled") === "true") return null;
+        .filter(btn => btn.getAttribute("aria-disabled") !== "true")
+        .map(btn => {
+            const img = btn.querySelector("img");
+            if (!img) return null;
+
+            const alt = img.getAttribute("alt") || "";
+            // alt usually looks like: "09 BLACK"
+            const match = alt.match(/^(\\d{2})\\s+(.*)$/);
+
+            if (!match) return null;
 
             return {
                 id: btn.id,
-                label: img.getAttribute("alt")   // numeric color code
+                color_code: match[1],   // '09'
+                color_label: match[2]   // 'BLACK'
             };
         })
         .filter(Boolean);
@@ -186,7 +191,7 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                             catalog,
                             product_id,
                             variant_id,
-                            color["label"],
+                            color["color_code"],  # ✅ canonical
                             s["size"],
                             price["sale_price"],
                             price["original_price"],
