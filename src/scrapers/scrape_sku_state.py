@@ -174,6 +174,11 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                         continue
 
                     for s in sizes:
+                        log(f"[DEBUG] INSERT → "
+                            f"{variant_id} "
+                            f"{color['label']} "
+                            f"{s['size']} "
+                            f"£{price}")
                         rows.append((
                             observed_at,
                             catalog,
