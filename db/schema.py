@@ -19,13 +19,13 @@ def init_db(conn):
             scrape_id TEXT NOT NULL,
             scraped_at TEXT NOT NULL,
             catalog TEXT NOT NULL,
-    
-            product_id TEXT NOT NULL,      -- e.g. 450195
-            variant_id TEXT NOT NULL,      -- e.g. E450195-000-02
+        
+            product_id TEXT NOT NULL,
+            variant_id TEXT NOT NULL,
             variant_url TEXT NOT NULL,
-    
+        
             name TEXT,
-    
+        
             PRIMARY KEY (catalog, variant_id)
         )
         """)

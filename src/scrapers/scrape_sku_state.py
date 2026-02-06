@@ -24,19 +24,26 @@ def kill_overlays(page):
 def get_colors(page):
     """
     Returns enabled color chips on a variant page.
+    Identified by chip image URLs (goods_<color>_<product>_chip.jpg).
     """
     return page.evaluate("""
         () => Array.from(
-            document.querySelectorAll("button[data-testid='ITOChip']")
+            document.querySelectorAll(
+                "button[data-testid='ITOChip'] img[src*='/chip/goods_']"
+            )
         )
-        .filter(b => b.getAttribute("aria-disabled") !== "true")
-        .map(b => ({
-            id: b.id,
-            label: b.getAttribute("value") || b.innerText.trim()
-        }))
-        .filter(c => c.id && c.label)
-    """)
+        .map(img => {
+            const btn = img.closest("button");
+            if (!btn) return null;
+            if (btn.getAttribute("aria-disabled") === "true") return null;
 
+            return {
+                id: btn.id,
+                label: img.getAttribute("alt")   // numeric color code
+            };
+        })
+        .filter(Boolean);
+    """)
 
 def select_color(page, color_id):
     page.evaluate("""

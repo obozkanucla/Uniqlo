@@ -41,46 +41,24 @@ def main():
     # 1. Scrape catalog (PURE)
     log("Scraping catalog")
     scrape_catalog(conn, log)
-    count = conn.execute("""
-                         SELECT COUNT(*)
-                         FROM uniqlo_sale_observations
-                         """).fetchone()[0]
-
-    log(f"Catalog scraped: {count} variants")
 
     # 2. Scrape SKU availability
     log("Scraping SKU availability")
     scrape_sku_state(conn, log)#, max_products=5)
     log("SKU availability scraped")
-    # #
-    # # # 3. Detect events
-    # log("Detecting events")
-    # events = detect(conn)
-    # log(f"Events detected: {len(events)}")
-    #
-    # if events:
-    #     conn.executemany("""
-    #                      INSERT
-    #                      OR IGNORE INTO uniqlo_events (
-    #             event_time,
-    #             catalog,
-    #             event_type,
-    #             product_id,
-    #             color,
-    #             size,
-    #             event_value
-    #         ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    #                      """, events)
-    #     conn.commit()
-    #     conn.commit()
-    #
-    # # 4. Notify
-    # log("Notifying")
-    # notify(conn)
-    # log("Notifications done")
-    #
-    # conn.close()
-    # log("END orchestrator")
+
+    # 3. Detect events
+    log("Detecting events")
+    events = detect(conn)
+    log(f"Events detected: {len(events)}")
+
+    # 4. Notify
+    log("Notifying")
+    notify(conn)
+    log("Notifications done")
+
+    conn.close()
+    log("END orchestrator")
 
 if __name__ == "__main__":
     main()

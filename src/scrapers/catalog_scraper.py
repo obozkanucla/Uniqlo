@@ -13,6 +13,8 @@ VARIANT_ID_RE = re.compile(r"(E\d{6}-\d{3})")
 
 
 def scrape_catalog(conn, log=print):
+    conn.execute("DELETE FROM uniqlo_sale_variants")
+    conn.commit()
     scrape_id = uuid.uuid4().hex
     scraped_at = datetime.utcnow().isoformat()
 
@@ -53,9 +55,7 @@ def scrape_catalog(conn, log=print):
             # ------------------------------------------------
             # Extract canonical variant URLs
             # ------------------------------------------------
-            for a in page.query_selector_all(
-                'a[href^="/uk/en/products/E"]'
-            ):
+            for a in page.query_selector_all('a[href^="/uk/en/products/E"]'):
                 href = a.get_attribute("href")
                 if not href:
                     continue
@@ -65,7 +65,7 @@ def scrape_catalog(conn, log=print):
                     continue
 
                 variant_id = m.group(1)
-                full_url = urljoin("https://www.uniqlo.com", href.split("?")[0])
+                product_id = variant_id[1:7]
 
                 key = (catalog, variant_id)
                 if key in seen_variants:
@@ -76,8 +76,9 @@ def scrape_catalog(conn, log=print):
                     scrape_id,
                     scraped_at,
                     catalog,
+                    product_id,
                     variant_id,
-                    full_url,
+                    urljoin("https://www.uniqlo.com", href.split("?")[0]),
                 ))
 
         browser.close()
@@ -86,23 +87,19 @@ def scrape_catalog(conn, log=print):
         log("[CATALOG] No variants found")
         return
 
-    conn.executemany(
-        """
-        INSERT OR IGNORE INTO uniqlo_sale_variants (
-            scrape_id,
-            scraped_at,
-            catalog,
-            variant_id,
-            variant_url
-        )
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        rows,
-    )
+    conn.executemany("""
+                     INSERT INTO uniqlo_sale_variants (scrape_id,
+                                                       scraped_at,
+                                                       catalog,
+                                                       product_id,
+                                                       variant_id,
+                                                       variant_url)
+                     VALUES (?, ?, ?, ?, ?, ?)
+                     """, rows)
 
     conn.commit()
     log(conn.execute("""
                      SELECT catalog, COUNT (*)
-                     FROM uniqlo_sale_observations
+                     FROM uniqlo_sale_variants
                      GROUP BY catalog
                      """).fetchall())
