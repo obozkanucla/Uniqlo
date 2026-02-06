@@ -22,32 +22,25 @@ def kill_overlays(page):
 
 def get_colors(page):
     """
-    Returns enabled color chips with BOTH:
-    - color_display_code (e.g. '09')
-    - color_label (e.g. 'BLACK')
+    Returns enabled color chips only.
+    Guaranteed to exclude size chips.
     """
     return page.evaluate("""
         () => Array.from(
-            document.querySelectorAll("button[data-testid='ITOChip']")
-        )
-        .filter(btn => btn.getAttribute("aria-disabled") !== "true")
-        .map(btn => {
-            const img = btn.querySelector("img");
-            if (!img) return null;
-
-            const alt = img.getAttribute("alt") || "";
-            // alt usually looks like: "09 BLACK"
-            const match = alt.match(/^(\\d{2})\\s+(.*)$/);
-
-            if (!match) return null;
+            document.querySelectorAll(
+                "button[data-testid='ITOChip'] img[src*='/chip/goods_']"
+            )
+        ).map(img => {
+            const btn = img.closest("button");
+            if (!btn) return null;
+            if (btn.getAttribute("aria-disabled") === "true") return null;
 
             return {
                 id: btn.id,
-                color_code: match[1],   // '09'
-                color_label: match[2]   // 'BLACK'
+                color_code: btn.getAttribute("value"), // e.g. "19"
+                color_label: img.getAttribute("alt")   // e.g. "WINE"
             };
-        })
-        .filter(Boolean);
+        }).filter(Boolean);
     """)
 
 def select_color(page, color_id):
@@ -55,15 +48,13 @@ def select_color(page, color_id):
         (id) => {
             const btn = document.getElementById(id);
             if (!btn) return;
-            btn.scrollIntoView({ block: "center" });
             btn.click();
         }
     """, color_id)
 
-
-def wait_for_refresh(page):
-    page.wait_for_timeout(800)
-
+    page.wait_for_function("""
+        () => document.querySelector('.fr-ec-price-text--color-promotional')
+    """, timeout=3000)
 
 def read_price(page):
     return page.evaluate("""
@@ -77,12 +68,11 @@ def read_price(page):
 
             if (!saleEl || !origEl) return null;
 
-            const clean = t => parseFloat(
-                t.replace(/[^0-9.]/g, "")
-            );
+            const clean = t =>
+                parseFloat(t.replace(/[^0-9.]/g, ""));
 
-            const sale = clean(saleEl.innerText);
-            const original = clean(origEl.innerText);
+            const sale = clean(saleEl.textContent);
+            const original = clean(origEl.textContent);
 
             if (!sale || !original || sale >= original) return null;
 
@@ -96,20 +86,26 @@ def read_price(page):
         }
     """)
 
-
 def read_sizes(page):
-    """
-    Reads size availability.
-    """
     return page.evaluate("""
-        () => Array.from(
-            document.querySelectorAll("div.size-chip-wrapper")
-        ).map(w => ({
-            size: w.innerText.trim(),
-            is_available: w.querySelector("div.strike") ? 0 : 1
-        }))
-    """)
+        () => Array.from(document.querySelectorAll("div.size-chip-wrapper"))
+            .map(w => {
+                const btn = w.querySelector("button");
+                if (!btn) return null;
 
+                const sizeLabel = btn.innerText.trim();
+                const sizeCode = btn.getAttribute("value"); // <-- FIX
+
+                if (!sizeLabel || !sizeCode) return null;
+
+                return {
+                    size_label: sizeLabel,     // "M", "30inch"
+                    size_code: sizeCode,       // "002", "027"
+                    is_available: w.querySelector("div.strike") ? 0 : 1
+                };
+            })
+            .filter(Boolean);
+    """)
 
 # --------------------------------------------------
 # Core scraper
@@ -155,13 +151,35 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
 
             try:
                 page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                page.wait_for_selector(
+                    "button[data-testid='ITOChip'] img",
+                    timeout=8000
+                )
+                # html = page.evaluate("""
+                #                      () => {
+                #                          return Array.from(
+                #                              document.querySelectorAll("[data-testid='ITOChip']")
+                #                          ).map(el => ({
+                #                              tag: el.tagName,
+                #                              aria: el.getAttribute("aria-label"),
+                #                              text: el.innerText,
+                #                              role: el.getAttribute("role"),
+                #                              disabled: el.getAttribute("aria-disabled")
+                #                          }));
+                #                      }
+                #                      """)
+                #
+                # log(f"[DEBUG] CHIP DUMP {variant_id}: {html}")
                 kill_overlays(page)
 
                 try:
                     page.click("#onetrust-accept-btn-handler", timeout=3000)
                 except:
                     pass
-
+                page.wait_for_selector(
+                    "button[data-testid='ITOChip'] img[src*='/chip/goods_']",
+                    timeout=8000
+                )
                 colors = get_colors(page)
 
                 if not colors:
@@ -170,9 +188,12 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
 
                 for color in colors:
                     select_color(page, color["id"])
-                    wait_for_refresh(page)
 
                     price = read_price(page)
+                    log(
+                        f"[DEBUG] PRICE {variant_id} "
+                        f"{color['color_label']} → {price}"
+                    )
                     if not price:
                         continue  # HARD SKIP: no discounted price
 
@@ -183,16 +204,16 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                     for s in sizes:
                         log(f"[DEBUG] INSERT → "
                             f"{variant_id} "
-                            f"{color['label']} "
-                            f"{s['size']} "
+                            f"{color['color_label']} "
+                            f"{s['size_label']} "
                             f"£{price}")
                         rows.append((
                             observed_at,
                             catalog,
                             product_id,
                             variant_id,
-                            color["color_code"],  # ✅ canonical
-                            s["size"],
+                            color["color_code"],
+                            s["size_code"],
                             price["sale_price"],
                             price["original_price"],
                             price["discount_pct"],

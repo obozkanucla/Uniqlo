@@ -10,7 +10,8 @@ def init_db(conn):
     - Availability is per (variant, color, size)
     - uniqlo_sku_state is the single source of truth
     """
-
+    conn.execute("DROP TABLE IF EXISTS uniqlo_events")
+    conn.execute("DROP TABLE IF EXISTS uniqlo_notifications")
     # --------------------------------------------------
     # 1. Sale catalog (variant discovery only)
     # --------------------------------------------------
@@ -57,19 +58,22 @@ def init_db(conn):
     # 3. Deduplicated SKU-level events
     # --------------------------------------------------
     conn.execute("""
-    CREATE TABLE IF NOT EXISTS uniqlo_events (
+        CREATE TABLE IF NOT EXISTS uniqlo_events (
         event_time TEXT NOT NULL,
         catalog TEXT NOT NULL,
         event_type TEXT NOT NULL,
-
+    
         product_id TEXT NOT NULL,
         variant_id TEXT NOT NULL,
-        color TEXT NOT NULL,
-        size TEXT NOT NULL,
-
+    
+        color_code TEXT NOT NULL,
+        color_label TEXT NOT NULL,
+        size_code TEXT NOT NULL,
+        size_label TEXT NOT NULL,
+    
         event_value TEXT,
-
-        PRIMARY KEY (event_type, variant_id, color, size)
+    
+        PRIMARY KEY (event_type, variant_id, color_code, size_code)
     )
     """)
 
@@ -91,28 +95,21 @@ def init_db(conn):
     """)
 
     conn.commit()
-
-
 def reset_events_table(conn):
-    """
-    Hard reset event table (safe for testing).
-    Does NOT touch SKU truth or sale catalog.
-    """
     conn.execute("DROP TABLE IF EXISTS uniqlo_events")
     conn.execute("""
-    CREATE TABLE uniqlo_events (
-        event_time TEXT NOT NULL,
-        catalog TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-
-        product_id TEXT NOT NULL,
-        variant_id TEXT NOT NULL,
-        color TEXT NOT NULL,
-        size TEXT NOT NULL,
-
-        event_value TEXT,
-
-        PRIMARY KEY (event_type, variant_id, color, size)
-    )
+        CREATE TABLE uniqlo_events (
+            event_time TEXT NOT NULL,
+            catalog TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            product_id TEXT NOT NULL,
+            variant_id TEXT NOT NULL,
+            color_code TEXT NOT NULL,
+            color_label TEXT NOT NULL,
+            size_code TEXT NOT NULL,
+            size_label TEXT NOT NULL,
+            event_value TEXT,
+            PRIMARY KEY (event_type, variant_id, color_code, size_code)
+        )
     """)
     conn.commit()
