@@ -21,6 +21,7 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID_MUGE: ${{ secrets.TELEGRAM_CHAT_ID_MUGE }}
       TELEGRAM_CHAT_ID_BURAK: ${{ secrets.TELEGRAM_CHAT_ID_BURAK }}
+      APP_ENV: prod
 
     steps:
       - name: Record start time

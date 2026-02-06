@@ -128,7 +128,11 @@ def notify(conn, log=print):
             )
 
             send_telegram_message(bot_token, chat_id, text)
-
+            send_telegram_message(
+                bot_token,
+                chat_id,
+                "TEST MESSAGE — IF YOU SEE THIS, TELEGRAM WORKS"
+            )
             conn.execute(
                 """
                 INSERT OR REPLACE INTO uniqlo_notifications
