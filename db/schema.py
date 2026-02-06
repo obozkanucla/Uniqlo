@@ -79,17 +79,17 @@ def init_db(conn):
     # 4. Notification delivery log
     # --------------------------------------------------
     conn.execute("""
-    CREATE TABLE IF NOT EXISTS uniqlo_notifications (
-        notified_at TEXT NOT NULL,
-        chat_id TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-
-        variant_id TEXT NOT NULL,
-        color TEXT NOT NULL,
-        size TEXT NOT NULL,
-
-        PRIMARY KEY (chat_id, event_type, variant_id, color, size)
-    )
+        CREATE TABLE IF NOT EXISTS uniqlo_notifications (
+            notified_at TEXT NOT NULL,
+            chat_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+        
+            variant_id TEXT NOT NULL,
+            color_code TEXT NOT NULL,
+            size_code TEXT NOT NULL,
+        
+            PRIMARY KEY (chat_id, event_type, variant_id, color_code, size_code)
+        )
     """)
 
     conn.commit()
