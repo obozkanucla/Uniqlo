@@ -24,6 +24,8 @@ def send_telegram_message(bot_token, chat_id: str, text: str):
 
 
 def notify(conn, log=print):
+    cols = [c[1] for c in conn.execute("PRAGMA table_info(uniqlo_events)")]
+    assert "sku_path" in cols, f"Schema mismatch: {cols}"
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not bot_token:
         log("[NOTIFY] No TELEGRAM_BOT_TOKEN — skipping")

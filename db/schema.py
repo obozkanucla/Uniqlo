@@ -59,20 +59,17 @@ def init_db(conn):
     # --------------------------------------------------
     conn.execute("""
             CREATE TABLE uniqlo_events (
-                event_time          TEXT    NOT NULL,
-                catalog             TEXT    NOT NULL,
-                event_type          TEXT    NOT NULL,
-                product_id          TEXT    NOT NULL,
-            
-                sku_path            TEXT    NOT NULL,   -- physical SKU
-                source_variant_id   TEXT    NOT NULL,   -- crawl seed (context)
-            
-                color_code          TEXT    NOT NULL,
-                color_label         TEXT    NOT NULL,
-                size_code           TEXT    NOT NULL,
-                size_label          TEXT    NOT NULL,
-            
-                event_value         TEXT    NOT NULL
+                event_time TEXT,
+                catalog TEXT,
+                event_type TEXT,
+                product_id TEXT,
+                sku_path TEXT,
+                source_variant_id TEXT,
+                color_code TEXT,
+                color_label TEXT,
+                size_code TEXT,
+                size_label TEXT,
+                event_value TEXT
             )
     """)
 
@@ -91,21 +88,22 @@ def init_db(conn):
     """)
 
     conn.commit()
+
 def reset_events_table(conn):
     conn.execute("DROP TABLE IF EXISTS uniqlo_events")
     conn.execute("""
-        CREATE TABLE uniqlo_events (
-            event_time TEXT NOT NULL,
-            catalog TEXT NOT NULL,
-            event_type TEXT NOT NULL,
-            product_id TEXT NOT NULL,
-            variant_id TEXT NOT NULL,
-            color_code TEXT NOT NULL,
-            color_label TEXT NOT NULL,
-            size_code TEXT NOT NULL,
-            size_label TEXT NOT NULL,
-            event_value TEXT,
-            PRIMARY KEY (event_type, variant_id, color_code, size_code)
+            CREATE TABLE IF NOT EXISTS uniqlo_events (
+                event_time TEXT,
+                catalog TEXT,
+                event_type TEXT,
+                product_id TEXT,
+                sku_path TEXT,
+                source_variant_id TEXT,
+                color_code TEXT,
+                color_label TEXT,
+                size_code TEXT,
+                size_label TEXT,
+                event_value TEXT
         )
     """)
     conn.commit()

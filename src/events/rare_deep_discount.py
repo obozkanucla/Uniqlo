@@ -47,6 +47,7 @@ def detect(conn):
             EVENT_TYPE,
             product_id,
             sku_path,
+            source_variant_id,
             color_code,
             color_label,
             size_code,
@@ -54,8 +55,7 @@ def detect(conn):
             json.dumps({
                 "sale_price": sale,
                 "original_price": original,
-                "discount_pct": discount,
-                "source_variant_id": source_variant_id
+                "discount_pct": discount
             })
         ))
 

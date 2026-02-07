@@ -60,19 +60,18 @@ def main():
 
     if events:
         conn.executemany("""
-                         INSERT INTO uniqlo_events (
-                            event_time,
-                            catalog,
-                            event_type,
-                            product_id,
-                            variant_id,
-                            color_code,
-                            color_label,
-                            size_code,
-                            size_label,
-                            event_value
-                        )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         INSERT INTO uniqlo_events (event_time,
+                                                    catalog,
+                                                    event_type,
+                                                    product_id,
+                                                    sku_path,
+                                                    source_variant_id,
+                                                    color_code,
+                                                    color_label,
+                                                    size_code,
+                                                    size_label,
+                                                    event_value)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                          """, events)
 
         print(
