@@ -39,19 +39,20 @@ def notify(conn, log=print):
     # print(conn.execute("PRAGMA table_info(uniqlo_events)").fetchall())
     events = conn.execute(
         """
-            SELECT
-                event_time,
-                catalog,
-                event_type,
-                product_id,
-                variant_id,
-                color_code,
-                color_label,
-                size_code,
-                size_label,
-                event_value
-            FROM uniqlo_events
-            WHERE event_time >= ?
+        SELECT 
+            event_time, 
+            catalog, 
+            event_type, 
+            product_id, 
+            sku_path, 
+            source_variant_id, 
+            color_code, 
+            color_label, 
+            size_code, 
+            size_label, 
+            event_value
+        FROM uniqlo_events
+        WHERE event_time >= ?
         """,
         (since,),
     ).fetchall()
@@ -63,13 +64,14 @@ def notify(conn, log=print):
             catalog,
             etype,
             product_id,
-            variant_id,
+            sku_path,
+            source_variant_id,
             color_code,
             color_label,
             size_code,
             size_label,
             event_value,
-    ) in events:
+        ) in events:
 
         payload = json.loads(event_value)
         sale = payload["sale_price"]
@@ -100,19 +102,20 @@ def notify(conn, log=print):
                 FROM uniqlo_notifications
                 WHERE chat_id = ?
                   AND event_type = ?
-                  AND variant_id = ?
-                  AND color_code = ?
+                  AND sku_path = ?
                   AND size_code = ?
                 """,
-                (chat_id, etype, variant_id, color_code, size_code),
+                (chat_id, etype, sku_path, size_code),
             ).fetchone()
 
             if last:
                 delta = datetime.utcnow() - datetime.fromisoformat(last[0])
                 if delta < timedelta(minutes=COOLDOWN_MINUTES):
                     continue
+            BASE_DOMAIN = "https://www.uniqlo.com"
+
             url = (
-                f"https://www.uniqlo.com/uk/en/products/{variant_id}"
+                f"{BASE_DOMAIN}{sku_path}"
                 f"?colorDisplayCode={color_code}"
                 f"&sizeDisplayCode={size_code}"
             )
@@ -120,7 +123,7 @@ def notify(conn, log=print):
                 "🔥 UNIQLO RARE DEEP DISCOUNT\n\n"
                 f"{catalog.upper()}\n"
                 f"Product: {product_id}\n"
-                f"Variant: {variant_id}\n"
+                f"SKU: {sku_path}\n"
                 f"Color: {color_label}\n"
                 f"Size: {size_label}\n"
                 f"£{sale} (was £{original}, -{discount}%)\n\n"
@@ -128,29 +131,23 @@ def notify(conn, log=print):
             )
 
             send_telegram_message(bot_token, chat_id, text)
-            send_telegram_message(
-                bot_token,
-                chat_id,
-                "TEST MESSAGE — IF YOU SEE THIS, TELEGRAM WORKS"
-            )
             conn.execute(
                 """
                 INSERT OR REPLACE INTO uniqlo_notifications
-                (notified_at, chat_id, event_type, variant_id, color_code, size_code)
-                VALUES (?, ?, ?, ?, ?, ?)
+                (notified_at, chat_id, event_type, sku_path, size_code)
+                VALUES (?, ?, ?, ?, ?)
                 """,
                 (
                     datetime.utcnow().isoformat(),
                     chat_id,
                     etype,
-                    variant_id,
-                    color_code,
+                    sku_path,
                     size_code,
                 ),
             )
             conn.commit()
 
             log(
-                f"[NOTIFY] SENT → {user} {variant_id} "
+                f"[NOTIFY] SENT → {user} {sku_path} {color_code} {size_code} "
                 f"{color_label} {size_label}"
             )

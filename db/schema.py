@@ -36,19 +36,21 @@ def init_db(conn):
     # --------------------------------------------------
     conn.execute("""
             CREATE TABLE IF NOT EXISTS uniqlo_sku_state (
-                observed_at     TEXT    NOT NULL,
-                catalog         TEXT    NOT NULL,
-                product_id      TEXT    NOT NULL,
-                variant_id      TEXT    NOT NULL,
-                color_code      TEXT    NOT NULL,
-                color_label     TEXT    NOT NULL,
-                size_code       TEXT    NOT NULL,
-                size_label      TEXT    NOT NULL,
-                sale_price      REAL,
-                original_price  REAL,
-                discount_pct    REAL,
-                is_available    INTEGER NOT NULL,
-                PRIMARY KEY (variant_id, color_code, size_code)
+                observed_at       TEXT    NOT NULL,
+                catalog           TEXT    NOT NULL,
+                product_id        TEXT    NOT NULL,
+                source_variant_id        TEXT    NOT NULL,    -- from uniqlo_sale_variants
+                sku_path          TEXT    NOT NULL,   -- /uk/en/products/E450251-000/00
+            
+                color_code        TEXT    NOT NULL,
+                color_label       TEXT    NOT NULL,
+                size_code         TEXT    NOT NULL,
+                size_label        TEXT    NOT NULL,
+            
+                sale_price        REAL    NOT NULL,
+                original_price    REAL    NOT NULL,
+                discount_pct      REAL    NOT NULL,
+                is_available      INTEGER NOT NULL
             )
     """)
 
@@ -56,39 +58,35 @@ def init_db(conn):
     # 3. Deduplicated SKU-level events
     # --------------------------------------------------
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS uniqlo_events (
-        event_time TEXT NOT NULL,
-        catalog TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-    
-        product_id TEXT NOT NULL,
-        variant_id TEXT NOT NULL,
-    
-        color_code TEXT NOT NULL,
-        color_label TEXT NOT NULL,
-        size_code TEXT NOT NULL,
-        size_label TEXT NOT NULL,
-    
-        event_value TEXT,
-    
-        PRIMARY KEY (event_type, variant_id, color_code, size_code)
-    )
+            CREATE TABLE uniqlo_events (
+                event_time          TEXT    NOT NULL,
+                catalog             TEXT    NOT NULL,
+                event_type          TEXT    NOT NULL,
+                product_id          TEXT    NOT NULL,
+            
+                sku_path            TEXT    NOT NULL,   -- physical SKU
+                source_variant_id   TEXT    NOT NULL,   -- crawl seed (context)
+            
+                color_code          TEXT    NOT NULL,
+                color_label         TEXT    NOT NULL,
+                size_code           TEXT    NOT NULL,
+                size_label          TEXT    NOT NULL,
+            
+                event_value         TEXT    NOT NULL
+            )
     """)
 
     # --------------------------------------------------
     # 4. Notification delivery log
     # --------------------------------------------------
     conn.execute("""
-        CREATE TABLE IF NOT EXISTS uniqlo_notifications (
-            notified_at TEXT NOT NULL,
-            chat_id TEXT NOT NULL,
-            event_type TEXT NOT NULL,
+        CREATE TABLE uniqlo_notifications (
+            notified_at     TEXT    NOT NULL,
+            chat_id         TEXT    NOT NULL,
+            event_type      TEXT    NOT NULL,
         
-            variant_id TEXT NOT NULL,
-            color_code TEXT NOT NULL,
-            size_code TEXT NOT NULL,
-        
-            PRIMARY KEY (chat_id, event_type, variant_id, color_code, size_code)
+            sku_path        TEXT    NOT NULL,
+            size_code       TEXT    NOT NULL
         )
     """)
 

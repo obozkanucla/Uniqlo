@@ -7,6 +7,10 @@ import time
 # --------------------------------------------------
 # DOM helpers
 # --------------------------------------------------
+def read_sku_path(page):
+    return page.evaluate("""
+        () => window.location.pathname
+    """)
 
 def kill_overlays(page):
     page.add_style_tag(content="""
@@ -145,8 +149,8 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
         context = browser.new_context()
         page = context.new_page()
 
-        for idx, (catalog, product_id, variant_id, url) in enumerate(variants, 1):
-            log(f"[SKU] [{idx}/{len(variants)}] {variant_id}")
+        for idx, (catalog, product_id, source_variant_id, url) in enumerate(variants, 1):
+            log(f"[SKU] [{idx}/{len(variants)}] {source_variant_id}")
             start = time.time()
 
             try:
@@ -183,15 +187,20 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                 colors = get_colors(page)
 
                 if not colors:
-                    log(f"[SKU] {variant_id}: no colors found")
+                    log(f"[SKU] {source_variant_id}: no colors found")
                     continue
 
                 for color in colors:
                     select_color(page, color["id"])
+                    sku_path = read_sku_path(page)
+
+                    if not sku_path or "/products/" not in sku_path:
+                        log(f"[WARN] unresolved SKU for {source_variant_id}")
+                        continue
 
                     price = read_price(page)
                     log(
-                        f"[DEBUG] PRICE {variant_id} "
+                        f"[DEBUG] PRICE {source_variant_id} "
                         f"{color['color_label']} → {price}"
                     )
                     if not price:
@@ -203,7 +212,7 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
 
                     for s in sizes:
                         log(f"[DEBUG] INSERT → "
-                            f"{variant_id} "
+                            f"{source_variant_id} "
                             f"{color['color_label']} "
                             f"{s['size_label']} "
                             f"£{price}")
@@ -211,7 +220,8 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                             observed_at,
                             catalog,
                             product_id,
-                            variant_id,
+                            source_variant_id,
+                            sku_path,
                             color["color_code"],
                             color["color_label"],
                             s["size_code"],
@@ -223,11 +233,11 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                         ))
 
             except Exception as e:
-                log(f"[WARN] {variant_id} failed: {e}")
+                log(f"[WARN] {source_variant_id} failed: {e}")
 
             finally:
                 elapsed = time.time() - start
-                log(f"[SKU] {variant_id} elapsed {elapsed:.1f}s")
+                log(f"[SKU] {source_variant_id} elapsed {elapsed:.1f}s")
                 page.goto("about:blank")
 
         browser.close()
@@ -243,7 +253,8 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                 observed_at,
                 catalog,
                 product_id,
-                variant_id,
+                source_variant_id,
+                sku_path,
                 color_code,
                 color_label,
                 size_code,
@@ -253,7 +264,7 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                 discount_pct,
                 is_available
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, rows)
 
     conn.commit()

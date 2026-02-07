@@ -10,7 +10,8 @@ def detect(conn):
         SELECT
             catalog,
             product_id,
-            variant_id,
+            source_variant_id,
+            sku_path,
             color_code,
             color_label,
             size_code,
@@ -30,7 +31,8 @@ def detect(conn):
     for (
             catalog,
             product_id,
-            variant_id,
+            source_variant_id,
+            sku_path,
             color_code,
             color_label,
             size_code,
@@ -44,7 +46,7 @@ def detect(conn):
             catalog,
             EVENT_TYPE,
             product_id,
-            variant_id,
+            sku_path,
             color_code,
             color_label,
             size_code,
@@ -52,7 +54,8 @@ def detect(conn):
             json.dumps({
                 "sale_price": sale,
                 "original_price": original,
-                "discount_pct": discount
+                "discount_pct": discount,
+                "source_variant_id": source_variant_id
             })
         ))
 
