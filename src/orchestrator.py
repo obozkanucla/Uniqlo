@@ -50,7 +50,7 @@ def main():
             return None
         return int(os.getenv("MAX_VARIANTS_DEV", 10))
 
-    scrape_sku_state(conn, log, max_variants=get_max_variants())
+    scrape_sku_state(conn, log, max_variants=15)# max_variants=get_max_variants())
     log("SKU availability scraped")
 
     # 3. Detect events
