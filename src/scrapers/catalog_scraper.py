@@ -1,7 +1,7 @@
 from playwright.sync_api import sync_playwright
 from datetime import datetime
 import uuid
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin
 import re
 
 CATALOG_URLS = {
@@ -10,11 +10,31 @@ CATALOG_URLS = {
 }
 
 VARIANT_ID_RE = re.compile(r"(E\d{6}-\d{3})")
+def extract_product_name_from_tile(a):
+    return a.evaluate("""
+        (a) => {
+            const tile = a.closest('[class*="product-tile"]');
+            if (!tile) return null;
+
+            const nodes = Array.from(
+                tile.querySelectorAll(
+                    '.product-tile__content-area [data-testid="ITOTypography"]'
+                )
+            );
+
+            // product name is the SECOND typography node
+            if (nodes.length < 2) return null;
+
+            const name = nodes[1].textContent.trim();
+            return name || null;
+        }
+    """, a)
 
 
 def scrape_catalog(conn, log=print):
     conn.execute("DELETE FROM uniqlo_sale_variants")
     conn.commit()
+
     scrape_id = uuid.uuid4().hex
     scraped_at = datetime.utcnow().isoformat()
 
@@ -39,10 +59,8 @@ def scrape_catalog(conn, log=print):
                 page.mouse.wheel(0, 5000)
                 page.wait_for_timeout(1500)
 
-                links = page.query_selector_all(
-                    'a[href^="/uk/en/products/E"]'
-                )
-                count = len(links)
+                tiles = page.query_selector_all('a[href^="/uk/en/products/E"]')
+                count = len(tiles)
 
                 if count == last_count:
                     stable_rounds += 1
@@ -53,7 +71,7 @@ def scrape_catalog(conn, log=print):
             log(f"[CATALOG] {catalog}: {last_count} product links")
 
             # ------------------------------------------------
-            # Extract canonical variant URLs
+            # Extract variant + deterministic product name
             # ------------------------------------------------
             for a in page.query_selector_all('a[href^="/uk/en/products/E"]'):
                 href = a.get_attribute("href")
@@ -72,6 +90,18 @@ def scrape_catalog(conn, log=print):
                     continue
                 seen_variants.add(key)
 
+                # 🔑 deterministic product name from tile
+                name_el = a.query_selector('[data-testid="ITOTypography"]')
+                product_name = (
+                    name_el.inner_text().strip()
+                    if name_el else None
+                )
+                product_name = extract_product_name_from_tile(a)
+                # print(product_name)
+                if not product_name:
+                    log(f"[CATALOG][SKIP] no product name for {variant_id}")
+                    continue
+
                 rows.append((
                     scrape_id,
                     scraped_at,
@@ -79,6 +109,7 @@ def scrape_catalog(conn, log=print):
                     product_id,
                     variant_id,
                     urljoin("https://www.uniqlo.com", href.split("?")[0]),
+                    product_name,
                 ))
 
         browser.close()
@@ -88,18 +119,24 @@ def scrape_catalog(conn, log=print):
         return
 
     conn.executemany("""
-                     INSERT INTO uniqlo_sale_variants (scrape_id,
-                                                       scraped_at,
-                                                       catalog,
-                                                       product_id,
-                                                       variant_id,
-                                                       variant_url)
-                     VALUES (?, ?, ?, ?, ?, ?)
-                     """, rows)
+        INSERT INTO uniqlo_sale_variants (
+            scrape_id,
+            scraped_at,
+            catalog,
+            product_id,
+            variant_id,
+            variant_url,
+            name
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, rows)
 
     conn.commit()
-    log(conn.execute("""
-                     SELECT catalog, COUNT (*)
-                     FROM uniqlo_sale_variants
-                     GROUP BY catalog
-                     """).fetchall())
+
+    log(
+        conn.execute("""
+            SELECT catalog, COUNT(*)
+            FROM uniqlo_sale_variants
+            GROUP BY catalog
+        """).fetchall()
+    )

@@ -2,7 +2,7 @@ from playwright.sync_api import sync_playwright
 from datetime import datetime
 import sqlite3
 import time
-
+from urllib.parse import urlparse
 
 # --------------------------------------------------
 # DOM helpers
@@ -127,9 +127,14 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
         "SELECT name FROM sqlite_master WHERE type='table'"
     ).fetchall())
     variants = conn.execute("""
-        SELECT catalog, product_id, variant_id, variant_url
-        FROM uniqlo_sale_variants
-        ORDER BY catalog, variant_id
+                SELECT
+                    catalog,
+                    product_id,
+                    variant_id,
+                    variant_url,
+                    name
+                FROM uniqlo_sale_variants
+                ORDER BY catalog, variant_id
     """).fetchall()
 
     if max_variants:
@@ -149,8 +154,11 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
         context = browser.new_context()
         page = context.new_page()
 
-        for idx, (catalog, product_id, source_variant_id, url) in enumerate(variants, 1):
+        for idx, (catalog, product_id, source_variant_id, url, product_name) in enumerate(variants, 1):
             log(f"[SKU] [{idx}/{len(variants)}] {source_variant_id}")
+            if not product_name:
+                log(f"[SKU][DROP] missing catalog product name for {source_variant_id}")
+                continue
             start = time.time()
 
             try:
@@ -159,21 +167,6 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                     "button[data-testid='ITOChip'] img",
                     timeout=8000
                 )
-                # html = page.evaluate("""
-                #                      () => {
-                #                          return Array.from(
-                #                              document.querySelectorAll("[data-testid='ITOChip']")
-                #                          ).map(el => ({
-                #                              tag: el.tagName,
-                #                              aria: el.getAttribute("aria-label"),
-                #                              text: el.innerText,
-                #                              role: el.getAttribute("role"),
-                #                              disabled: el.getAttribute("aria-disabled")
-                #                          }));
-                #                      }
-                #                      """)
-                #
-                # log(f"[DEBUG] CHIP DUMP {variant_id}: {html}")
                 kill_overlays(page)
 
                 try:
@@ -192,8 +185,8 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
 
                 for color in colors:
                     select_color(page, color["id"])
-                    sku_path = read_sku_path(page)
-
+                    # sku_path = read_sku_path(page)
+                    sku_path = urlparse(url).path
                     if not sku_path or "/products/" not in sku_path:
                         log(f"[WARN] unresolved SKU for {source_variant_id}")
                         continue
@@ -221,6 +214,7 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                             catalog,
                             product_id,
                             source_variant_id,
+                            product_name,
                             sku_path,
                             color["color_code"],
                             color["color_label"],
@@ -254,6 +248,7 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                 catalog,
                 product_id,
                 source_variant_id,
+                product_name,
                 sku_path,
                 color_code,
                 color_label,
@@ -264,7 +259,7 @@ def scrape_sku_state(conn: sqlite3.Connection, log=print, max_variants=None):
                 discount_pct,
                 is_available
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, rows)
 
     conn.commit()

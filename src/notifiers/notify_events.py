@@ -1,6 +1,7 @@
 import os
 import json
 import requests
+from collections import defaultdict
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
@@ -8,7 +9,7 @@ from src.notifiers.rules import USER_NOTIFICATION_RULES
 
 load_dotenv()
 
-COOLDOWN_MINUTES = 0
+BASE_DOMAIN = "https://www.uniqlo.com"
 
 
 def send_telegram_message(bot_token, chat_id: str, text: str):
@@ -24,136 +25,114 @@ def send_telegram_message(bot_token, chat_id: str, text: str):
 
 
 def notify(conn, log=print):
-    cols = [c[1] for c in conn.execute("PRAGMA table_info(uniqlo_events)")]
-    assert "sku_path" in cols, f"Schema mismatch: {cols}"
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     if not bot_token:
         log("[NOTIFY] No TELEGRAM_BOT_TOKEN — skipping")
         return
 
-    rules = USER_NOTIFICATION_RULES
-
-    # --------------------------------------------------
-    # Load recent events (already filtered + deduped)
-    # --------------------------------------------------
     LOOKBACK_MINUTES = 60
     since = (datetime.utcnow() - timedelta(minutes=LOOKBACK_MINUTES)).isoformat()
-    # print(conn.execute("PRAGMA table_info(uniqlo_events)").fetchall())
-    events = conn.execute(
-        """
-        SELECT 
-            event_time, 
-            catalog, 
-            event_type, 
-            product_id, 
-            sku_path, 
-            source_variant_id, 
-            color_code, 
-            color_label, 
-            size_code, 
-            size_label, 
-            event_value
-        FROM uniqlo_events
-        WHERE event_time >= ?
-        """,
-        (since,),
-    ).fetchall()
 
-    log(f"[NOTIFY] Loaded {len(events)} recent events")
-    skip_counts = {
-        "no_chat": 0,
-        "no_rule": 0,
-        "size": 0,
-        "color": 0,
-        "sent": 0,
-    }
-    total = 0
-    for (
+    rows = conn.execute("""
+        SELECT
             event_time,
             catalog,
-            etype,
+            event_type,
             product_id,
             sku_path,
             source_variant_id,
             color_code,
             color_label,
-            size_code,
             size_label,
-            event_value,
-        ) in events:
+            event_value
+        FROM uniqlo_events
+        WHERE event_time >= ?
+    """, (since,)).fetchall()
 
+    log(f"[NOTIFY] Loaded {len(rows)} raw events")
+
+    # --------------------------------------------------
+    # Group by product + color
+    # --------------------------------------------------
+    grouped = defaultdict(lambda: {
+        "sizes": set()
+    })
+
+    for (
+        _event_time,
+        catalog,
+        event_type,
+        product_id,
+        sku_path,
+        source_variant_id,
+        color_code,
+        color_label,
+        size_label,
+        event_value
+    ) in rows:
         payload = json.loads(event_value)
-        sale = payload["sale_price"]
-        original = payload["original_price"]
-        discount = payload["discount_pct"]
 
-        for user, cfg in rules.items():
-            total += 1
+        key = (
+            catalog,
+            product_id,
+            payload["product_name"],
+            color_code,
+            color_label,
+            sku_path
+        )
 
-            chat_id = cfg.get("chat_id")
-            if not chat_id:
-                skip_counts["no_chat"] += 1
-                log(f"[NOTIFY][SKIP] no_chat → {skip_counts['no_chat']}/{total}")
-                continue
+        g = grouped[key]
+        g["catalog"] = catalog
+        g["event_type"] = event_type
+        g["product_id"] = product_id
+        g["product_name"] = payload["product_name"]
+        g["color_code"] = color_code
+        g["color_label"] = color_label
+        g["sku_path"] = sku_path
+        g["sale"] = payload["sale_price"]
+        g["original"] = payload["original_price"]
+        g["discount"] = payload["discount_pct"]
+        g["sizes"].add(size_label)
 
-            rule = cfg.get("events", {}).get(etype, {}).get(catalog)
+    log(f"[NOTIFY] Grouped into {len(grouped)} messages")
+
+    # --------------------------------------------------
+    # Send messages per user
+    # --------------------------------------------------
+    for user, cfg in USER_NOTIFICATION_RULES.items():
+        chat_id = cfg.get("chat_id")
+        if not chat_id:
+            continue
+
+        for g in grouped.values():
+            rule = cfg.get("events", {}).get(g["event_type"], {}).get(g["catalog"])
             if not rule:
-                skip_counts["no_rule"] += 1
-                log(f"[NOTIFY][SKIP] no_rule → {skip_counts['no_rule']}/{total}")
                 continue
 
-            if rule.get("sizes") and size_label not in rule["sizes"]:
-                skip_counts["size"] += 1
-                log(f"[NOTIFY][SKIP] size → {skip_counts['size']}/{total}")
+            # optional color filter
+            if rule.get("colors") and g["color_label"] not in rule["colors"]:
                 continue
 
-            if rule.get("colors") and color_label not in rule["colors"]:
-                skip_counts["color"] += 1
-                log(f"[NOTIFY][SKIP] color → {skip_counts['color']}/{total}")
-                continue
-
-            skip_counts["sent"] += 1
-            log(f"[NOTIFY][PASS] sent → {skip_counts['sent']}/{total}")
-
-            # --------------------------------------------------
-            # Idempotency / cooldown
-            # --------------------------------------------------
-            last = conn.execute(
-                """
-                SELECT notified_at
-                FROM uniqlo_notifications
-                WHERE chat_id = ?
-                  AND event_type = ?
-                  AND sku_path = ?
-                  AND size_code = ?
-                """,
-                (chat_id, etype, sku_path, size_code),
-            ).fetchone()
-
-            if last:
-                continue
-                # delta = datetime.utcnow() - datetime.fromisoformat(last[0])
-                # if delta < timedelta(minutes=COOLDOWN_MINUTES):
-                #     continue
-            BASE_DOMAIN = "https://www.uniqlo.com"
+            sizes = sorted(g["sizes"])
+            sizes_text = ", ".join(sizes)
 
             url = (
-                f"{BASE_DOMAIN}{sku_path}"
-                f"?colorDisplayCode={color_code}"
-                f"&sizeDisplayCode={size_code}"
+                f"{BASE_DOMAIN}{g['sku_path']}"
+                f"?colorDisplayCode={g['color_code']}"
             )
+
             text = (
                 "🔥 UNIQLO RARE DEEP DISCOUNT\n\n"
-                f"{catalog.upper()}\n"
-                f"Product: {product_id}\n"
-                f"SKU: {sku_path}\n"
-                f"Color: {color_label}\n"
-                f"Size: {size_label}\n"
-                f"£{sale} (was £{original}, -{discount}%)\n\n"
+                f"{g['catalog'].upper()}\n"
+                f"{g['product_name']}\n"
+                f"Color: {g['color_label']}\n"
+                f"Sizes: {sizes_text}\n\n"
+                f"£{g['sale']} (was £{g['original']}, -{g['discount']}%)\n\n"
                 f"{url}"
             )
 
             send_telegram_message(bot_token, chat_id, text)
+
             conn.execute(
                 """
                 INSERT OR REPLACE INTO uniqlo_notifications
@@ -163,14 +142,12 @@ def notify(conn, log=print):
                 (
                     datetime.utcnow().isoformat(),
                     chat_id,
-                    etype,
-                    sku_path,
-                    size_code,
+                    g["event_type"],
+                    g["sku_path"],
+                    "ALL",
                 ),
             )
-            conn.commit()
 
-            log(
-                f"[NOTIFY] SENT → {user} {sku_path} {color_code} {size_code} "
-                f"{color_label} {size_label}"
-            )
+        conn.commit()
+
+    log("[NOTIFY] Notifications sent")

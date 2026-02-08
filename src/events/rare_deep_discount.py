@@ -12,6 +12,7 @@ def detect(conn):
             product_id,
             source_variant_id,
             sku_path,
+            product_name,
             color_code,
             color_label,
             size_code,
@@ -33,6 +34,7 @@ def detect(conn):
             product_id,
             source_variant_id,
             sku_path,
+            product_name,
             color_code,
             color_label,
             size_code,
@@ -53,6 +55,7 @@ def detect(conn):
             size_code,
             size_label,
             json.dumps({
+                "product_name": product_name,
                 "sale_price": sale,
                 "original_price": original,
                 "discount_pct": discount

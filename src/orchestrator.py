@@ -3,7 +3,7 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 
-from db.schema import init_db
+from db.schema import init_db, assert_schema
 from src.scrapers.scrape_sku_state import scrape_sku_state
 from src.events.rare_deep_discount import detect
 from src.notifiers.notify_events import notify
@@ -30,10 +30,12 @@ def persist_catalog(df, conn):
     )
 
 def main():
+    log(f"USING DB FILE: {DB_PATH.resolve()}")
     log("START orchestrator")
 
     conn = sqlite3.connect(DB_PATH)
     init_db(conn)
+    assert_schema(conn)
     log("Resetting events table")
     reset_events_table(conn)
     log("DB initialized")
@@ -48,7 +50,7 @@ def main():
     def get_max_variants():
         if os.getenv("APP_ENV", "dev").lower() == "prod":
             return None
-        return int(os.getenv("MAX_VARIANTS_DEV", 100))
+        return int(os.getenv("MAX_VARIANTS_DEV", 20))
 
     scrape_sku_state(conn, log, max_variants=get_max_variants())
     log("SKU availability scraped")

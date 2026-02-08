@@ -40,6 +40,7 @@ def init_db(conn):
                 catalog           TEXT    NOT NULL,
                 product_id        TEXT    NOT NULL,
                 source_variant_id        TEXT    NOT NULL,    -- from uniqlo_sale_variants
+                product_name    TEXT NOT NULL,
                 sku_path          TEXT    NOT NULL,   -- /uk/en/products/E450251-000/00
             
                 color_code        TEXT    NOT NULL,
@@ -88,6 +89,27 @@ def init_db(conn):
     """)
 
     conn.commit()
+
+def assert_schema(conn):
+    cols = [c[1] for c in conn.execute("PRAGMA table_info(uniqlo_sku_state)")]
+    expected = {
+        "observed_at",
+        "catalog",
+        "product_id",
+        "source_variant_id",
+        "product_name",
+        "sku_path",
+        "color_code",
+        "color_label",
+        "size_code",
+        "size_label",
+        "sale_price",
+        "original_price",
+        "discount_pct",
+        "is_available",
+    }
+    if set(cols) != expected:
+        raise RuntimeError(f"Schema mismatch: {cols}")
 
 def reset_events_table(conn):
     conn.execute("DROP TABLE IF EXISTS uniqlo_events")
