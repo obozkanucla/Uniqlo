@@ -60,7 +60,14 @@ def notify(conn, log=print):
     ).fetchall()
 
     log(f"[NOTIFY] Loaded {len(events)} recent events")
-
+    skip_counts = {
+        "no_chat": 0,
+        "no_rule": 0,
+        "size": 0,
+        "color": 0,
+        "sent": 0,
+    }
+    total = 0
     for (
             event_time,
             catalog,
@@ -81,19 +88,32 @@ def notify(conn, log=print):
         discount = payload["discount_pct"]
 
         for user, cfg in rules.items():
+            total += 1
+
             chat_id = cfg.get("chat_id")
             if not chat_id:
+                skip_counts["no_chat"] += 1
+                log(f"[NOTIFY][SKIP] no_chat → {skip_counts['no_chat']}/{total}")
                 continue
 
             rule = cfg.get("events", {}).get(etype, {}).get(catalog)
             if not rule:
+                skip_counts["no_rule"] += 1
+                log(f"[NOTIFY][SKIP] no_rule → {skip_counts['no_rule']}/{total}")
                 continue
 
             if rule.get("sizes") and size_label not in rule["sizes"]:
+                skip_counts["size"] += 1
+                log(f"[NOTIFY][SKIP] size → {skip_counts['size']}/{total}")
                 continue
 
             if rule.get("colors") and color_label not in rule["colors"]:
+                skip_counts["color"] += 1
+                log(f"[NOTIFY][SKIP] color → {skip_counts['color']}/{total}")
                 continue
+
+            skip_counts["sent"] += 1
+            log(f"[NOTIFY][PASS] sent → {skip_counts['sent']}/{total}")
 
             # --------------------------------------------------
             # Idempotency / cooldown

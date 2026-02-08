@@ -7,12 +7,12 @@ USER_NOTIFICATION_RULES = {
         "chat_id": os.getenv("TELEGRAM_CHAT_ID_BURAK"),
         "events": {
             "RARE_DEEP_DISCOUNT": {
-                # "women": {
-                #     "sizes": None, #["M", "32inch", "33inch"],
-                #     "colors": None
-                # },
+                "women": {
+                    "sizes": ["S", "XS"],
+                    "colors": None
+                },
                 "men": {
-                    "sizes": ["M", "28inch", "32inch", "33inch"],
+                    "sizes": ["M", "L","32inch", "33inch"],
                     "colors": None
                 }
             }
