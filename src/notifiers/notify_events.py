@@ -131,9 +131,10 @@ def notify(conn, log=print):
             ).fetchone()
 
             if last:
-                delta = datetime.utcnow() - datetime.fromisoformat(last[0])
-                if delta < timedelta(minutes=COOLDOWN_MINUTES):
-                    continue
+                continue
+                # delta = datetime.utcnow() - datetime.fromisoformat(last[0])
+                # if delta < timedelta(minutes=COOLDOWN_MINUTES):
+                #     continue
             BASE_DOMAIN = "https://www.uniqlo.com"
 
             url = (
