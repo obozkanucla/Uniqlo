@@ -2,7 +2,7 @@ name: Uniqlo Rare Discount Detector
 
 on:
   schedule:
-    - cron: "0 10-21 * * *"   # hourly, 12 runs/day (UTC)
+    - cron: "0 21 * * *"   # once a day at 21:00 UTC
   workflow_dispatch:
 
 concurrency:
