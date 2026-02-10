@@ -51,70 +51,71 @@ def notify(conn, log=print):
 
     log(f"[NOTIFY] Loaded {len(rows)} raw events")
 
-    # --------------------------------------------------
-    # Group by product + color
-    # --------------------------------------------------
-    grouped = defaultdict(lambda: {
-        "sizes": set()
-    })
-
-    for (
-        _event_time,
-        catalog,
-        event_type,
-        product_id,
-        sku_path,
-        source_variant_id,
-        color_code,
-        color_label,
-        size_label,
-        event_value
-    ) in rows:
-        payload = json.loads(event_value)
-
-        key = (
-            catalog,
-            product_id,
-            payload["product_name"],
-            color_code,
-            color_label,
-            sku_path
-        )
-
-        g = grouped[key]
-        g["catalog"] = catalog
-        g["event_type"] = event_type
-        g["product_id"] = product_id
-        g["product_name"] = payload["product_name"]
-        g["color_code"] = color_code
-        g["color_label"] = color_label
-        g["sku_path"] = sku_path
-        g["sale"] = payload["sale_price"]
-        g["original"] = payload["original_price"]
-        g["discount"] = payload["discount_pct"]
-        g["sizes"].add(size_label)
-
-    log(f"[NOTIFY] Grouped into {len(grouped)} messages")
-
-    # --------------------------------------------------
-    # Send messages per user
-    # --------------------------------------------------
     for user, cfg in USER_NOTIFICATION_RULES.items():
         chat_id = cfg.get("chat_id")
         if not chat_id:
             continue
 
-        for g in grouped.values():
-            rule = cfg.get("events", {}).get(g["event_type"], {}).get(g["catalog"])
+        grouped = defaultdict(lambda: {"sizes": set()})
+
+        for (
+            _event_time,
+            catalog,
+            event_type,
+            product_id,
+            sku_path,
+            _source_variant_id,
+            color_code,
+            color_label,
+            size_label,
+            event_value
+        ) in rows:
+            rule = cfg.get("events", {}).get(event_type, {}).get(catalog)
             if not rule:
                 continue
 
-            # optional color filter
-            if rule.get("colors") and g["color_label"] not in rule["colors"]:
+            # size filter
+            if rule.get("sizes") and size_label not in rule["sizes"]:
                 continue
 
-            sizes = sorted(g["sizes"])
-            sizes_text = ", ".join(sizes)
+            # color filter
+            if rule.get("colors") and color_label not in rule["colors"]:
+                continue
+
+            payload = json.loads(event_value)
+
+            key = (
+                catalog,
+                event_type,
+                product_id,
+                payload["product_name"],
+                color_code,
+                color_label,
+                sku_path,
+            )
+
+            g = grouped[key]
+            g.update({
+                "catalog": catalog,
+                "event_type": event_type,
+                "product_id": product_id,
+                "product_name": payload["product_name"],
+                "color_code": color_code,
+                "color_label": color_label,
+                "sku_path": sku_path,
+                "sale": payload["sale_price"],
+                "original": payload["original_price"],
+                "discount": payload["discount_pct"],
+            })
+            g["sizes"].add(size_label)
+
+        log(f"[NOTIFY] {user}: {len(grouped)} messages")
+
+        for g in grouped.values():
+            if not g["sizes"]:
+                continue
+
+            sizes_text = ", ".join(sorted(g["sizes"]))
 
             url = (
                 f"{BASE_DOMAIN}{g['sku_path']}"
@@ -144,7 +145,7 @@ def notify(conn, log=print):
                     chat_id,
                     g["event_type"],
                     g["sku_path"],
-                    "ALL",
+                    "MULTI",
                 ),
             )
 
