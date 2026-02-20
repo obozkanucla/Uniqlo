@@ -12,13 +12,13 @@ USER_NOTIFICATION_RULES = {
                     "colors": None
                 },
                 "men": {
-                    "sizes": ["XL", "XXL"],# "XL", "32inch", "33inch"],
+                    "sizes": ["M", "L"],# "XL", "32inch", "33inch"],
                     "colors": None
                 }
             }
         }
     },
-    "burak": {
+    "beste": {
         "chat_id": os.getenv("TELEGRAM_CHAT_ID_BESTE"),
         "events": {
             "RARE_DEEP_DISCOUNT": {
@@ -27,7 +27,7 @@ USER_NOTIFICATION_RULES = {
                     "colors": None
                 },
                 "men": {
-                    "sizes": ["M", "L"],  #"32inch", "33inch"],
+                    "sizes": ["XL", "XXL"],  #"32inch", "33inch"],
                     "colors": None
                 }
             }
@@ -40,6 +40,10 @@ USER_NOTIFICATION_RULES = {
                 "women": {
                     "sizes": ["XS", "S"],
                     "colors": None #["BLACK", "NAVY"]
+                },
+                "men": {
+                    "sizes": ["XL", "XXL"],  # "32inch", "33inch"],
+                    "colors": None
                 }
             }
         }

@@ -58,6 +58,19 @@ def main():
     # 3. Detect events
     log("Detecting events")
     events = detect(conn)
+    # events = [(
+    #     datetime.utcnow().isoformat(),
+    #     "men",
+    #     "RARE_DEEP_DISCOUNT",
+    #     "TEST123",
+    #     "/uk/en/products/E000000-000/00",
+    #     "VARIANT123",
+    #     "09",
+    #     "BLACK",
+    #     "XL",
+    #     "XL",
+    #     '{"product_name":"Test Product","sale_price":9.99,"original_price":39.99,"discount_pct":75}'
+    # )]
     log(f"Events detected: {len(events)}")
 
     if events:

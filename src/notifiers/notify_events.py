@@ -132,7 +132,9 @@ def notify(conn, log=print):
                 f"{url}"
             )
 
+            log(f"[NOTIFY] SENDING → {user} chat_id={chat_id}")
             send_telegram_message(bot_token, chat_id, text)
+            log(f"[NOTIFY] SENT OK → {user}")
 
             conn.execute(
                 """
