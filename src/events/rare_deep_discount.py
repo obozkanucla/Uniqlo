@@ -24,7 +24,7 @@ def detect(conn):
         WHERE
             is_available = 1
             AND discount_pct >= 60
-            AND sale_price < 15
+            AND sale_price < 25
     """).fetchall()
 
     events = []
