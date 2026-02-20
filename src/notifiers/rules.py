@@ -8,25 +8,40 @@ USER_NOTIFICATION_RULES = {
         "events": {
             "RARE_DEEP_DISCOUNT": {
                 "women": {
-                    "sizes": ["S", "XS"],
+                    "sizes": ["M"],
                     "colors": None
                 },
                 "men": {
-                    "sizes": ["M", "L"],# "XL", "32inch", "33inch"],
+                    "sizes": ["XL", "XXL"],# "XL", "32inch", "33inch"],
                     "colors": None
                 }
             }
         }
     },
-    # "muge": {
-    #     "chat_id": os.getenv("TELEGRAM_CHAT_ID_MUGE"),
-    #     "events": {
-    #         "RARE_DEEP_DISCOUNT": {
-    #             "women": {
-    #                 "sizes": ["XS", "S"],
-    #                 "colors": None #["BLACK", "NAVY"]
-    #             }
-    #         }
-    #     }
-    # }
+    "burak": {
+        "chat_id": os.getenv("TELEGRAM_CHAT_ID_BESTE"),
+        "events": {
+            "RARE_DEEP_DISCOUNT": {
+                "women": {
+                    "sizes": ["S", "XS"],
+                    "colors": None
+                },
+                "men": {
+                    "sizes": ["M", "L"],  # "XL", "32inch", "33inch"],
+                    "colors": None
+                }
+            }
+        }
+    },
+    "muge": {
+        "chat_id": os.getenv("TELEGRAM_CHAT_ID_MUGE"),
+        "events": {
+            "RARE_DEEP_DISCOUNT": {
+                "women": {
+                    "sizes": ["XS", "S"],
+                    "colors": None #["BLACK", "NAVY"]
+                }
+            }
+        }
+    }
 }
