@@ -8,7 +8,7 @@ USER_NOTIFICATION_RULES = {
         "events": {
             "RARE_DEEP_DISCOUNT": {
                 "women": {
-                    "sizes": ["S", "XS"],
+                    "sizes": ["S", "XS"], #
                     "colors": None
                 },
                 "men": {
