@@ -47,5 +47,21 @@ USER_NOTIFICATION_RULES = {
                 }
             }
         }
-    }
+    },
+    "mumun": {
+        "chat_id": os.getenv("TELEGRAM_CHAT_ID_MUMUN"),
+        "events": {
+            "RARE_DEEP_DISCOUNT": {
+                "women": {
+                    "sizes": ["XS", "S"],
+                    "colors": None  # ["BLACK", "NAVY"]
+                },
+                "men": {
+                    "sizes": ["XL", "XXL"],  # "32inch", "33inch"],
+                    "colors": None
+                }
+            }
+        }
+    },
+
 }
