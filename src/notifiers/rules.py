@@ -63,5 +63,15 @@ USER_NOTIFICATION_RULES = {
             }
         }
     },
-
+    "adrien": {
+        "chat_id": os.getenv("TELEGRAM_CHAT_ID_ADRIEN"),
+        "events": {
+            "RARE_DEEP_DISCOUNT": {
+                "men": {
+                    "sizes": ["M", "L"],  # "32inch", "33inch"],
+                    "colors": None
+                }
+            }
+        }
+    }
 }
