@@ -68,7 +68,7 @@ USER_NOTIFICATION_RULES = {
         "events": {
             "RARE_DEEP_DISCOUNT": {
                 "men": {
-                    "sizes": ["M", "L"],  # "32inch", "33inch"],
+                    "sizes": ["M", "L", "33inch"],
                     "colors": None
                 }
             }
